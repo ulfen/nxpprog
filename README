@@ -1,0 +1,36 @@
+Programmer for NXP arm processors using ISP protocol.
+
+Command summary:
+
+List the supported processors:
+
+./nxpprog.py --list
+
+Full flash erase with no programming:
+
+./nxpprog.py --eraseonly <serial device>
+
+Program image file to processor:
+
+./nxpprog.py <serial device> <image_file>
+
+The image start address defaults to 0.
+When the image start address is 0 a checksum is inserted in the reserved
+interrupt vector so that the bootloader will boot the image.
+The image file is a raw binary file (output from objcopy -O binary).
+
+Note:
+Xonxoff flow control does not work with some usb serial
+converters on windows and doesn't seem necessary in my setup.
+If you in your setup need flow control, for example
+if you get programming errors, then try enabling this.
+
+Windows Advice
+
+When you have installed python for windows and the (py)serial module
+then something like this should work:
+
+<path to python>\python.exe nxpprog.py COM1 image.bin
+
+It is very important that the serial port name is written in capital letters,
+lower case names will not be matched against possible serial devices.
