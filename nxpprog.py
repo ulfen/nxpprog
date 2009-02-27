@@ -28,6 +28,7 @@ import sys
 import struct
 import getopt
 import serial # pyserial
+import time
 
 # flash sector sizes for lpc23xx/lpc24xx/lpc214x processors
 flash_sector_lpc23xx = (
@@ -237,8 +238,35 @@ class nxpprog:
 
         self.cpu = cpu
 
+        self.reset_pin = "dtr"
+
+        if 1:
+            self.isp_mode()
+
         self.connection_init(osc_freq)
 
+    def isp_mode(self):
+        self.reset(0)
+        time.sleep(.1)
+        self.reset(1)
+        self.int0(1)
+        time.sleep(.1)
+        self.reset(0)
+        time.sleep(.1)
+        self.int0(0)
+
+    def reset(self, level):
+        if self.reset_pin == "rts":
+            self.serdev.setRTS(level)
+        else:
+            self.serdev.setDTR(level)
+
+    def int0(self, level):
+        # if reset pin is rts int0 pin is dtr
+        if self.reset_pin == "rts":
+            self.serdev.setDTR(level)
+        else:
+            self.serdev.setRTS(level)
 
     def connection_init(self, osc_freq):
         self.sync(osc_freq)
