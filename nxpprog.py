@@ -199,19 +199,21 @@ def syntax():
     panic(
 """%s <serial device> <image_file> : program image file to processor.
 %s --eraseonly <serial device> : erase the device's flash.
+%s --start=<addr> <serial device> : start the device at <addr>
 %s --list : list supported processors.
 options:
     --cpu=<cpu> : set the cpu type.
     --oscfreq=<freq> : set the oscillator frequency.
     --baud=<baud> : set the baud rate.
     --xonxoff : enable xonxoff flow control.
+    --control : use RTS and DTR to control reset and int0.
     --addr=<image start address> : set the base address for the image.
     --eraseall : erase all flash not just the area written to.
            """ % (sys.argv[0], sys.argv[0], sys.argv[0]))
 
 
 class nxpprog:
-    def __init__(self, cpu, device, baud, osc_freq, xonxoff):
+    def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0):
         self.echo_on = 1
         self.OK = "OK\r\n"
         self.RESEND = "RESEND\r\n"
@@ -237,14 +239,20 @@ class nxpprog:
             self.serdev.setXonXoff(1)
 
         self.cpu = cpu
-
+        
+        # reset pin is controlled by DTR implying int0 is controlled by RTS
         self.reset_pin = "dtr"
 
-        if 1:
+        if control:
             self.isp_mode()
+
+        self.serdev.flushInput()
 
         self.connection_init(osc_freq)
 
+    # put the chip in isp mode by resetting it using RTS and DTR signals
+    # this is of course only possible if the signals are connected in
+    # this way
     def isp_mode(self):
         self.reset(0)
         time.sleep(.1)
@@ -570,10 +578,12 @@ if __name__ == "__main__":
     erase_all = 0
     erase_only = 0
     xonxoff = 0
+    start = 0
+    control = 0
 
     optlist, args = getopt.getopt(sys.argv[1:], '',
-            ['cpu=', 'oscfreq=', 'baud=',
-                'addr=', 'xonxoff', 'eraseall', 'list'])
+            ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
+                'xonxoff', 'eraseall', 'list', 'control'])
 
     for o, a in optlist:
         if o == "--list":
@@ -595,6 +605,14 @@ if __name__ == "__main__":
             erase_all = 1
         elif o == "--eraseonly":
             erase_only = 1
+        elif o == "--control":
+            control = 1
+        elif o == "--start":
+            start = 1
+            if a:
+                startaddr = a
+            else:
+                startaddr = 0
         else:
             panic("unhandled option %s" % o)
 
@@ -608,10 +626,12 @@ if __name__ == "__main__":
 
     device = args[0]
 
-    prog = nxpprog(cpu, device, baud, osc_freq, xonxoff)
+    prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control)
 
     if erase_all:
         prog.erase_all()
+    elif start:
+        prog.start(startaddr)
     else:
         if len(args) != 2:
             syntax()
