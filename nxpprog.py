@@ -209,7 +209,7 @@ options:
     --control : use RTS and DTR to control reset and int0.
     --addr=<image start address> : set the base address for the image.
     --eraseall : erase all flash not just the area written to.
-           """ % (sys.argv[0], sys.argv[0], sys.argv[0]))
+           """ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0]))
 
 
 class nxpprog:
