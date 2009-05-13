@@ -1,14 +1,8 @@
 Programmer for NXP arm processors using ISP protocol.
 
-Command summary:
+For help run the command with no arguments:
 
-List the supported processors:
-
-./nxpprog.py --list
-
-Full flash erase with no programming:
-
-./nxpprog.py --eraseonly <serial device>
+./nxpprog.py
 
 Program image file to processor:
 
