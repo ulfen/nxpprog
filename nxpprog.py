@@ -208,6 +208,7 @@ options:
     --xonxoff : enable xonxoff flow control.
     --control : use RTS and DTR to control reset and int0.
     --addr=<image start address> : set the base address for the image.
+    --eraseonly : don't program, just erase. Implies --eraseall.
     --eraseall : erase all flash not just the area written to.
            """ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0]))
 
@@ -583,7 +584,7 @@ if __name__ == "__main__":
 
     optlist, args = getopt.getopt(sys.argv[1:], '',
             ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
-                'xonxoff', 'eraseall', 'list', 'control'])
+                'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
 
     for o, a in optlist:
         if o == "--list":
@@ -628,7 +629,7 @@ if __name__ == "__main__":
 
     prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control)
 
-    if erase_all:
+    if erase_only:
         prog.erase_all()
     elif start:
         prog.start(startaddr)
