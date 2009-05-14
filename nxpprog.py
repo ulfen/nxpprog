@@ -30,6 +30,8 @@ import getopt
 import serial # pyserial
 import time
 
+import ihex
+
 # flash sector sizes for lpc23xx/lpc24xx/lpc214x processors
 flash_sector_lpc23xx = (
                         4, 4, 4, 4, 4, 4, 4, 4,
@@ -210,6 +212,7 @@ options:
     --addr=<image start address> : set the base address for the image.
     --eraseonly : don't program, just erase. Implies --eraseall.
     --eraseall : erase all flash not just the area written to.
+    --filetype=[ihex|bin]: set filetype to intel hex format or raw binary
            """ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0]))
 
 
@@ -581,9 +584,10 @@ if __name__ == "__main__":
     xonxoff = 0
     start = 0
     control = 0
+    filetype = "bin"
 
     optlist, args = getopt.getopt(sys.argv[1:], '',
-            ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
+            ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=', 'filetype=',
                 'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
 
     for o, a in optlist:
@@ -608,6 +612,10 @@ if __name__ == "__main__":
             erase_only = 1
         elif o == "--control":
             control = 1
+        elif o == "--filetype":
+            filetype = a
+	    if not ( filetype == "bin" or filetype == "ihex" ):
+		panic("invalid filetype: %s" % filetype)
         elif o == "--start":
             start = 1
             if a:
@@ -615,7 +623,7 @@ if __name__ == "__main__":
             else:
                 startaddr = 0
         else:
-            panic("unhandled option %s" % o)
+	    panic("unhandled option: %s" % o)
 
     if cpu != "autodetect" and not cpu_parms.has_key(cpu):
         panic("unsupported cpu %s" % cpu)
@@ -638,7 +646,12 @@ if __name__ == "__main__":
             syntax()
 
         filename = args[1]
-        image = open(filename, "rb").read()
+
+	if filetype == "ihex":
+	    ih = ihex.ihex(filename)
+	    (flash_addr_base, image) = ih.flatten()
+	else:
+            image = open(filename, "rb").read()
 
         prog.prog_image(image, flash_addr_base, erase_all)
 
