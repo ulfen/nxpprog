@@ -67,7 +67,7 @@ flash_sector_lpc17xx = (
                        )
 
 
-flash_prog_buffer_base_default = 0x40004000
+flash_prog_buffer_base_default = 0x40001000
 flash_prog_buffer_size_default = 4096
    
 # cpu parameter table
@@ -197,47 +197,47 @@ cpu_parms = {
 	# lpc17xx
 	"lpc1768" : {
 	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10004000,
+	    "flash_prog_buffer_base" : 0x10001000,
 	    "devid": 0x26013f37,
 	},
 	"lpc1766" : {
 	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10004000,
+	    "flash_prog_buffer_base" : 0x10001000,
 	    "devid": 0x26013f33,
 	},
 	"lpc1765" : {
 	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10004000,
+	    "flash_prog_buffer_base" : 0x10001000,
 	    "devid": 0x26013733,
 	},
 	"lpc1764" : {
 	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10004000,
+	    "flash_prog_buffer_base" : 0x10001000,
 	    "devid": 0x26011922,
 	},
 	"lpc1758" : {
 	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10004000,
+	    "flash_prog_buffer_base" : 0x10001000,
 	    "devid": 0x26013f34,
 	},
 	"lpc1756" : {
 	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10004000,
+	    "flash_prog_buffer_base" : 0x10001000,
 	    "devid": 0x26011723,
 	},
 	"lpc1754" : {
 	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10004000,
+	    "flash_prog_buffer_base" : 0x10001000,
 	    "devid": 0x26011722,
 	},
 	"lpc1752" : {
 	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10004000,
+	    "flash_prog_buffer_base" : 0x10001000,
 	    "devid": 0x26001121,
 	},
 	"lpc1751" : {
 	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10004000,
+	    "flash_prog_buffer_base" : 0x10001000,
 	    "devid": 0x26001110,
 	},
 }
