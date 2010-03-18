@@ -198,46 +198,55 @@ cpu_parms = {
 	"lpc1768" : {
 	    "flash_sector" : flash_sector_lpc17xx,
 	    "flash_prog_buffer_base" : 0x10001000,
+	    "csum_vec": 7,
 	    "devid": 0x26013f37,
 	},
 	"lpc1766" : {
 	    "flash_sector" : flash_sector_lpc17xx,
 	    "flash_prog_buffer_base" : 0x10001000,
+	    "csum_vec": 7,
 	    "devid": 0x26013f33,
 	},
 	"lpc1765" : {
 	    "flash_sector" : flash_sector_lpc17xx,
 	    "flash_prog_buffer_base" : 0x10001000,
+	    "csum_vec": 7,
 	    "devid": 0x26013733,
 	},
 	"lpc1764" : {
 	    "flash_sector" : flash_sector_lpc17xx,
 	    "flash_prog_buffer_base" : 0x10001000,
+	    "csum_vec": 7,
 	    "devid": 0x26011922,
 	},
 	"lpc1758" : {
 	    "flash_sector" : flash_sector_lpc17xx,
 	    "flash_prog_buffer_base" : 0x10001000,
+	    "csum_vec": 7,
 	    "devid": 0x26013f34,
 	},
 	"lpc1756" : {
 	    "flash_sector" : flash_sector_lpc17xx,
 	    "flash_prog_buffer_base" : 0x10001000,
+	    "csum_vec": 7,
 	    "devid": 0x26011723,
 	},
 	"lpc1754" : {
 	    "flash_sector" : flash_sector_lpc17xx,
 	    "flash_prog_buffer_base" : 0x10001000,
+	    "csum_vec": 7,
 	    "devid": 0x26011722,
 	},
 	"lpc1752" : {
 	    "flash_sector" : flash_sector_lpc17xx,
 	    "flash_prog_buffer_base" : 0x10001000,
+	    "csum_vec": 7,
 	    "devid": 0x26001121,
 	},
 	"lpc1751" : {
 	    "flash_sector" : flash_sector_lpc17xx,
 	    "flash_prog_buffer_base" : 0x10001000,
+	    "csum_vec": 7,
 	    "devid": 0x26001110,
 	},
 }
@@ -493,7 +502,8 @@ class nxpprog:
         # make this a valid image by inserting a checksum in the correct place
         intvecs = struct.unpack("<8I", orig_image[0:32])
 
-        valid_image_csum_vec = 5
+	# default vector is 5: 0x14, new cortex cpus use 7: 0x1c
+        valid_image_csum_vec = self.get_cpu_parm("csum_vec", 5)
         # calculate the checksum over the interrupt vectors
         csum = 0
         intvecs_list = []
