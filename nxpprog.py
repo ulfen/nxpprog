@@ -66,6 +66,10 @@ flash_sector_lpc17xx = (
                         32, 32, 32, 32, 32, 32, 32,
                        )
 
+# flash sector sizes for lpc11xx processors                                                                                                          
+flash_sector_lpc11xx = (
+        4, 4, 4, 4, 4, 4, 4, 4,
+        )
 
 flash_prog_buffer_base_default = 0x40001000
 flash_prog_buffer_size_default = 4096
@@ -249,6 +253,12 @@ cpu_parms = {
 	    "csum_vec": 7,
 	    "devid": 0x26001110,
 	},
+        "lpc1114" : {
+            "flash_sector" : flash_sector_lpc11xx,
+            "flash_prog_buffer_base" : 0x10000400,
+            "devid": 0x0444102B,
+            "flash_prog_buffer_size" : 1024
+        },
 }
 
 
