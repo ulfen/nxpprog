@@ -198,61 +198,61 @@ cpu_parms = {
             "flash_sector" : flash_sector_lpc23xx,
             "devid": 386006837,
         },
-	# lpc17xx
-	"lpc1768" : {
-	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10001000,
-	    "csum_vec": 7,
-	    "devid": 0x26013f37,
-	},
-	"lpc1766" : {
-	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10001000,
-	    "csum_vec": 7,
-	    "devid": 0x26013f33,
-	},
-	"lpc1765" : {
-	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10001000,
-	    "csum_vec": 7,
-	    "devid": 0x26013733,
-	},
-	"lpc1764" : {
-	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10001000,
-	    "csum_vec": 7,
-	    "devid": 0x26011922,
-	},
-	"lpc1758" : {
-	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10001000,
-	    "csum_vec": 7,
-	    "devid": 0x26013f34,
-	},
-	"lpc1756" : {
-	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10001000,
-	    "csum_vec": 7,
-	    "devid": 0x26011723,
-	},
-	"lpc1754" : {
-	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10001000,
-	    "csum_vec": 7,
-	    "devid": 0x26011722,
-	},
-	"lpc1752" : {
-	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10001000,
-	    "csum_vec": 7,
-	    "devid": 0x26001121,
-	},
-	"lpc1751" : {
-	    "flash_sector" : flash_sector_lpc17xx,
-	    "flash_prog_buffer_base" : 0x10001000,
-	    "csum_vec": 7,
-	    "devid": 0x26001110,
-	},
+        # lpc17xx
+        "lpc1768" : {
+            "flash_sector" : flash_sector_lpc17xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x26013f37,
+        },
+        "lpc1766" : {
+            "flash_sector" : flash_sector_lpc17xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x26013f33,
+        },
+        "lpc1765" : {
+            "flash_sector" : flash_sector_lpc17xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x26013733,
+        },
+        "lpc1764" : {
+            "flash_sector" : flash_sector_lpc17xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x26011922,
+        },
+        "lpc1758" : {
+            "flash_sector" : flash_sector_lpc17xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x26013f34,
+        },
+        "lpc1756" : {
+            "flash_sector" : flash_sector_lpc17xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x26011723,
+        },
+        "lpc1754" : {
+            "flash_sector" : flash_sector_lpc17xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x26011722,
+        },
+        "lpc1752" : {
+            "flash_sector" : flash_sector_lpc17xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x26001121,
+        },
+        "lpc1751" : {
+            "flash_sector" : flash_sector_lpc17xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x26001110,
+        },
         "lpc1114" : {
             "flash_sector" : flash_sector_lpc11xx,
             "flash_prog_buffer_base" : 0x10000400,
@@ -512,7 +512,7 @@ class nxpprog:
         # make this a valid image by inserting a checksum in the correct place
         intvecs = struct.unpack("<8I", orig_image[0:32])
 
-	# default vector is 5: 0x14, new cortex cpus use 7: 0x1c
+        # default vector is 5: 0x14, new cortex cpus use 7: 0x1c
         valid_image_csum_vec = self.get_cpu_parm("csum_vec", 5)
         # calculate the checksum over the interrupt vectors
         csum = 0
@@ -689,8 +689,8 @@ if __name__ == "__main__":
             control = 1
         elif o == "--filetype":
             filetype = a
-	    if not ( filetype == "bin" or filetype == "ihex" ):
-		panic("invalid filetype: %s" % filetype)
+            if not ( filetype == "bin" or filetype == "ihex" ):
+                panic("invalid filetype: %s" % filetype)
         elif o == "--start":
             start = 1
             if a:
@@ -698,7 +698,7 @@ if __name__ == "__main__":
             else:
                 startaddr = 0
         else:
-	    panic("unhandled option: %s" % o)
+            panic("unhandled option: %s" % o)
 
     if cpu != "autodetect" and not cpu_parms.has_key(cpu):
         panic("unsupported cpu %s" % cpu)
@@ -722,10 +722,10 @@ if __name__ == "__main__":
 
         filename = args[1]
 
-	if filetype == "ihex":
-	    ih = ihex.ihex(filename)
-	    (flash_addr_base, image) = ih.flatten()
-	else:
+        if filetype == "ihex":
+            ih = ihex.ihex(filename)
+            (flash_addr_base, image) = ih.flatten()
+        else:
             image = open(filename, "rb").read()
 
         prog.prog_image(image, flash_addr_base, erase_all)

@@ -10,7 +10,7 @@ class data_rec:
         self.data = data
 
     def __repr__(self):
-	return "%08x: %x" % (self.addr, len(self.data))
+        return "%08x: %x" % (self.addr, len(self.data))
 
 class ihex:
     TYPE_DATA = 0
@@ -43,7 +43,7 @@ class ihex:
             (l, addr, type, data) = self.line_parse(l[1:], line_no)
 
             if l != len(data):
-                print "data length does not match length field %d" % line_no
+                print("data length does not match length field %d" % line_no)
 
             if type == self.TYPE_EOF:
                 return
@@ -57,12 +57,12 @@ class ihex:
             if type == self.TYPE_START_SEGMENT_ADDR or \
                 type == self.TYPE_START_LINEAR_ADDR:
                 if self.start_addr:
-                    print "start address set twice: line %d" % line_no
+                    print("start address set twice: line %d" % line_no)
                 self.start_addr = self.multi_val(data)
 
             if type == self.TYPE_DATA:
                 self.data.append(data_rec(addr + base_addr,
-			self.intlist_tostr(data)))
+                        self.intlist_tostr(data)))
 
     def line_parse(self, hexstring, line_no):
         list = []
@@ -79,10 +79,10 @@ class ihex:
         return (list[0], self.multi_val(list[1:3]), list[3], list[4:-1])
 
     def intlist_tostr(self, list):
-	data = ""
-	for c in list:
-	    data += chr(c)
-	return data
+        data = ""
+        for c in list:
+            data += chr(c)
+        return data
 
     def multi_val(self, data):
         sum = 0
@@ -91,32 +91,32 @@ class ihex:
         return sum
 
     def dump(self):
-	for d in self.data:
-	    print d
+        for d in self.data:
+            print(d)
 
     def padding(self, fill, len):
-	s = ""
-	for i in range(0, len):
-	    s += fill
-	return s
+        s = ""
+        for i in range(0, len):
+            s += fill
+        return s
 
     def flatten(self, fill = chr(0xff)):
-	sort_list = []
-	for d in self.data:
-	    sort_list.append((d.addr, d.data))
-	sort_list.sort(lambda x,y: cmp(x[0], y[0]))
-	data = ""
-	last_addr = sort_list[0][0]
-	start_addr = last_addr
-	for e in sort_list:
-	    addr = e[0]
-	    l = len(e[1])
-	    pad = addr - last_addr
-	    if pad < 0:
+        sort_list = []
+        for d in self.data:
+            sort_list.append((d.addr, d.data))
+        sort_list.sort(lambda x,y: cmp(x[0], y[0]))
+        data = ""
+        last_addr = sort_list[0][0]
+        start_addr = last_addr
+        for e in sort_list:
+            addr = e[0]
+            l = len(e[1])
+            pad = addr - last_addr
+            if pad < 0:
                 raise Exception("overlapping sections in file")
-	    if pad > 0:
-		data += self.padding(fill, pad)
-		l += pad
-	    data += e[1]
-	    last_addr += l
-	return (start_addr, data)
+            if pad > 0:
+                data += self.padding(fill, pad)
+                l += pad
+            data += e[1]
+            last_addr += l
+        return (start_addr, data)
