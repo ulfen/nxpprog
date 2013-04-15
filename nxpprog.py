@@ -272,7 +272,6 @@ cpu_parms = {
             "flash_bank_addr": (0x1a000000, 0x1b000000),
             "flash_prog_buffer_base" : 0x10081000,
             "devid": (0xf001da30, 0),
-            "flash_prog_buffer_size" : 1024,
             "csum_vec": 7,
         },
 }
@@ -809,9 +808,11 @@ if __name__ == "__main__":
     start = 0
     control = 0
     filetype = "bin"
+    select_bank = 0
+    bank = 0
 
     optlist, args = getopt.getopt(sys.argv[1:], '',
-            ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=', 'filetype=',
+            ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=', 'filetype=', 'bank=',
                 'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
 
     for o, a in optlist:
@@ -846,6 +847,9 @@ if __name__ == "__main__":
                 startaddr = a
             else:
                 startaddr = 0
+        elif o == "--bank":
+            select_bank = 1
+            bank = int(a)
         else:
             panic("unhandled option: %s" % o)
 
@@ -867,6 +871,8 @@ if __name__ == "__main__":
         prog.erase_all()
     elif start:
         prog.start(startaddr)
+    elif select_bank:
+        prog.select_bank(bank)
     else:
         if len(args) != 2:
             syntax()
@@ -881,6 +887,4 @@ if __name__ == "__main__":
 
         prog.prog_image(image, flash_addr_base, erase_all)
 
-        prog.select_bank(0)
-
-        prog.start()
+        #prog.start()
