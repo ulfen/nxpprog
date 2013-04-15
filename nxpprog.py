@@ -71,6 +71,13 @@ flash_sector_lpc11xx = (
         4, 4, 4, 4, 4, 4, 4, 4,
         )
 
+# flash sector sizes for lpc18xx processors
+flash_sector_lpc18xx = (
+                        8, 8, 8, 8, 8, 8, 8, 8,
+                        64, 64, 64, 64, 64, 64, 64,
+                       )
+
+
 flash_prog_buffer_base_default = 0x40001000
 flash_prog_buffer_size_default = 4096
    
@@ -259,11 +266,31 @@ cpu_parms = {
             "devid": 0x0444102B,
             "flash_prog_buffer_size" : 1024
         },
+        # lpc18xx
+        "lpc1837" : {
+            "flash_sector" : flash_sector_lpc18xx,
+            "flash_bank_addr": (0x1a000000, 0x1b000000),
+            "flash_prog_buffer_base" : 0x10081000,
+            "devid": (0xf001da30, 0),
+            "flash_prog_buffer_size" : 1024,
+            "csum_vec": 7,
+        },
 }
 
 
 def log(str):
     sys.stderr.write("%s\n" % str)
+
+def dump(name, str):
+    sys.stderr.write("%s:\n" % name)
+    ct = 0
+    for i in str:
+        sys.stderr.write("%x, " % ord(i))
+        ct += 1
+        if ct == 4:
+            ct = 0
+            sys.stderr.write("\n")
+    sys.stderr.write("\n")
 
 
 def panic(str):
@@ -293,8 +320,8 @@ options:
 class nxpprog:
     def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0):
         self.echo_on = 1
-        self.OK = "OK\r\n"
-        self.RESEND = "RESEND\r\n"
+        self.OK = "OK"
+        self.RESEND = "RESEND"
         self.sync_str = 'Synchronized'
 
         # for calculations in 32 bit modulo arithmetic
@@ -327,6 +354,13 @@ class nxpprog:
         self.serdev.flushInput()
 
         self.connection_init(osc_freq)
+
+        #banks = self.get_cpu_parm("flash_bank_addr", 0)
+
+        if 1:
+            self.sector_commands_need_bank = 1
+        else:
+            self.sector_commands_need_bank = 0
 
     # put the chip in isp mode by resetting it using RTS and DTR signals
     # this is of course only possible if the signals are connected in
@@ -368,7 +402,8 @@ class nxpprog:
                     self.cpu = dcpu
                     break
             if self.cpu == "autodetect":
-                panic("Cannot autodetect from device id %d, set cpu name manually" % devid)
+                panic("Cannot autodetect from device id %d(0x%x), set cpu name manually" %
+                        (devid, devid))
 
         # unlock write commands
         self.isp_command("U 23130")
@@ -377,15 +412,42 @@ class nxpprog:
     def dev_write(self, data):
         self.serdev.write(data)
 
-    def dev_readline(self):
-        return self.serdev.readline()
+    def dev_writeln(self, data):
+        self.serdev.write(data)
+        self.serdev.write("\r\n")
+
+    def dev_readline(self, timeout=None):
+        if timeout:
+            ot = self.serdev.getTimeout()
+            self.serdev.setTimeout(timeout)
+
+        line = ""
+        while 1:
+            c = self.serdev.read(1)
+            if not c:
+                break
+            #print "%x" % ord(c)
+            if c == '\r':
+                continue
+            if c == '\n':
+                if not line:
+                    continue
+                else:
+                    break
+            line += c
+
+        #print("r: '%s'" % line)
+
+        #dump("r", line)
+
+        if timeout:
+            self.serdev.setTimeout(ot)
+
+        return line
 
     # something suspicious here in tty setup - these should be the same
     def str_in(self, str):
         return "%s\r\n" % str
-
-    def str_out(self, str):
-        return "%s\n" % str
 
     def errexit(self, str, status):
         if not status:
@@ -396,7 +458,7 @@ class nxpprog:
 
 
     def isp_command(self, cmd):
-        self.dev_write("%s\n" % cmd)
+        self.dev_writeln(cmd)
 
         # throw away echo data
         if self.echo_on:
@@ -411,27 +473,27 @@ class nxpprog:
         s = self.dev_readline()
         if not s:
             panic("sync timeout")
-        if s != self.str_in(self.sync_str):
+        if s != self.sync_str:
             panic("no sync string")
 
-        self.dev_write(self.str_out(self.sync_str))
+        self.dev_writeln(self.sync_str)
         # recieve our echoed data
         s = self.dev_readline()
-        if s != self.str_out(self.sync_str):
+        if s != self.sync_str:
             panic("no sync string")
 
         s = self.dev_readline()
         if s != self.OK:
             panic("not ok")
 
-        self.dev_write("%d\n" % osc)
+        self.dev_writeln("%d" % osc)
         # discard echo
         s = self.dev_readline()
         s = self.dev_readline()
         if s != self.OK:
             panic("osc not ok")
 
-        self.dev_write("A 0\n")
+        self.dev_writeln("A 0")
         # discard echo
         s = self.dev_readline()
         s = self.dev_readline()
@@ -462,7 +524,7 @@ class nxpprog:
             self.dev_write(bstr)
 
 
-        self.dev_write("%s\n" % self.sum(data))
+        self.dev_writeln("%s" % self.sum(data))
         status = self.dev_readline()
         if not status:
             return "timeout"
@@ -474,6 +536,63 @@ class nxpprog:
         # unknown status result
         panic(status)
 
+    def uudecode(self, line):
+        # uu encoded data has an encoded length first
+        linelen = ord(line[0]) - 32
+
+        uu_linelen = (linelen + 3 - 1) / 3 * 4
+
+        if uu_linelen + 1 != len(line):
+            panic("error in line length")
+
+        # pure python implementation - if this was C we would
+        # use bitshift operations here 
+        decoded = ""
+        for i in range(1, len(line), 4):
+            c = 0
+            for j in line[i: i + 4]:
+                ch = ord(j) - 32
+                ch %= 64
+                c = c * 64 + ch
+            s = []
+            for j in range(0, 3):
+                s.append(c % 256)
+                c /= 256
+            for j in reversed(s):
+                decoded = decoded + chr(j)
+
+        # only return real data
+        return decoded[0:linelen]
+
+
+    def read_block(self, addr, data_len):
+        self.isp_command("R %d %d\n" % ( addr, data_len ))
+
+        expected_lines = (data_len + self.uu_line_size - 1)/self.uu_line_size
+
+        data = ""
+        for i in range(0, expected_lines, 20):
+            lines = expected_lines - i
+            if lines > 20:
+                lines = 20
+            cdata = ""
+            for i in range(0, lines):
+                line = self.dev_readline()
+
+                decoded = self.uudecode(line)
+
+                cdata += decoded
+
+            s = self.dev_readline()
+
+            if int(s) != self.sum(cdata):
+                panic("checksum mismatch on read got %x expected %x" % (int(s), self.sum(data)))
+            else:
+                self.dev_writeln(self.OK)
+
+            data += cdata
+
+        return data
 
     def write_ram_data(self, addr, data):
         image_len = len(data)
@@ -492,7 +611,11 @@ class nxpprog:
 
     def find_flash_sector(self, addr):
         table = self.get_cpu_parm("flash_sector")
-        faddr = 0
+        flash_base_addr = self.get_cpu_parm("flash_bank_addr", 0)
+        if not flash_base_addr:
+            faddr = 0
+        else:
+            faddr = flash_base_addr[0] # fix to have a current flash bank
         for i in range(0, len(table)):
             n_faddr = faddr + table[i] * 1024
             if addr >= faddr and addr < n_faddr:
@@ -519,12 +642,16 @@ class nxpprog:
         intvecs_list = []
         for vec in range(0, len(intvecs)):
             intvecs_list.append(intvecs[vec])
-            csum = csum + intvecs[vec]
+            if valid_image_csum_vec == 5 or vec <= valid_image_csum_vec:
+                csum = csum + intvecs[vec]
         # remove the value at the checksum location
         csum -= intvecs[valid_image_csum_vec]
 
         csum %= self.U32_MOD
         csum = self.U32_MOD - csum
+
+        log("inserting intvec checksum %08x in image at offset %d" %
+                (csum, valid_image_csum_vec))
 
         intvecs_list[valid_image_csum_vec] = csum
 
@@ -538,7 +665,10 @@ class nxpprog:
 
 
     def prepare_flash_sectors(self, start_sector, end_sector):
-        self.isp_command("P %d %d" % (start_sector, end_sector))
+        if self.sector_commands_need_bank:
+            self.isp_command("P %d %d 0" % (start_sector, end_sector))
+        else:
+            self.isp_command("P %d %d" % (start_sector, end_sector))
 
 
     def erase_sectors(self, start_sector, end_sector):
@@ -546,7 +676,10 @@ class nxpprog:
 
         log("erasing flash sectors %d-%d" % (start_sector, end_sector))
 
-        self.isp_command("E %d %d" % (start_sector, end_sector))
+        if self.sector_commands_need_bank:
+            self.isp_command("E %d %d 0" % (start_sector, end_sector))
+        else:
+            self.isp_command("E %d %d" % (start_sector, end_sector))
 
 
     def erase_flash(self, start_addr, end_addr):
@@ -563,7 +696,7 @@ class nxpprog:
         parm = ccpu_parms.get(key)
         if parm:
             return parm
-        if default:
+        if default != None:
             return default
         else:
             panic("no value for required cpu parameter %s" % key)
@@ -587,8 +720,8 @@ class nxpprog:
         ram_block = self.get_cpu_parm("flash_prog_buffer_size",
                 flash_prog_buffer_size_default)
 
-        if self.get_cpu_parm("intvec_checksum", 1) and flash_addr_base == 0:
-            log("inserting intvec checksum in image")
+        #if self.get_cpu_parm("intvec_checksum", 1) and flash_addr_base == 0:
+        if self.get_cpu_parm("intvec_checksum", 1): #and flash_addr_base == 0:
             image = self.insert_csum(image)
 
         image_len = len(image)
@@ -617,7 +750,7 @@ class nxpprog:
             log("writing %d bytes to %x" % (a_ram_block, flash_addr_start))
 
             self.write_ram_data(ram_addr,
-                    image[flash_addr_start: flash_addr_end])
+                    image[image_index: image_index + a_ram_block])
 
             s_flash_sector = self.find_flash_sector(flash_addr_start)
 
@@ -642,10 +775,26 @@ class nxpprog:
         self.isp_command("G %d %s" % (addr, m))
 
 
+    def select_bank(self, bank):
+        status = self.isp_command("S %d" % bank)
+
+        if status == self.OK:
+            return 1
+
+        return 0
+
+
     def get_devid(self):
         self.isp_command("J")
-        id = self.dev_readline()
-        return int(id)
+        id1 = self.dev_readline()
+
+        # FIXME find a way of doing this without a timeout
+        id2 = self.dev_readline(.2)
+        if id2:
+            ret = (int(id1), int(id2))
+        else:
+            ret = int(id1)
+        return ret
 
 
 if __name__ == "__main__":
@@ -712,6 +861,8 @@ if __name__ == "__main__":
 
     prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control)
 
+    #data = prog.read_block(0x1a000000, 1024)
+
     if erase_only:
         prog.erase_all()
     elif start:
@@ -729,5 +880,7 @@ if __name__ == "__main__":
             image = open(filename, "rb").read()
 
         prog.prog_image(image, flash_addr_base, erase_all)
+
+        prog.select_bank(0)
 
         prog.start()
