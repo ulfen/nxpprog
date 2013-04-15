@@ -267,11 +267,40 @@ cpu_parms = {
             "flash_prog_buffer_size" : 1024
         },
         # lpc18xx
+        "lpc1832" : {
+            "flash_sector" : flash_sector_lpc18xx,
+            "flash_bank_addr": 0x1a000000,
+            "flash_prog_buffer_base" : 0x10081000,
+            "csum_vec": 7,
+        },
+        "lpc1833" : {
+            "flash_sector" : flash_sector_lpc18xx,
+            "flash_sector_count": 11,
+            "flash_bank_addr": (0x1a000000, 0x1b000000),
+            "flash_prog_buffer_base" : 0x10081000,
+            "devid": (0xf001da30, 0x44),
+            "csum_vec": 7,
+        },
         "lpc1837" : {
             "flash_sector" : flash_sector_lpc18xx,
             "flash_bank_addr": (0x1a000000, 0x1b000000),
             "flash_prog_buffer_base" : 0x10081000,
             "devid": (0xf001da30, 0),
+            "csum_vec": 7,
+        },
+        "lpc1853" : {
+            "flash_sector" : flash_sector_lpc18xx,
+            "flash_sector_count": 11,
+            "flash_bank_addr": (0x1a000000, 0x1b000000),
+            "flash_prog_buffer_base" : 0x10081000,
+            "devid": (0xf001d830, 0),
+            "csum_vec": 7,
+        },
+        "lpc1857" : {
+            "flash_sector" : flash_sector_lpc18xx,
+            "flash_bank_addr": (0x1a000000, 0x1b000000),
+            "flash_prog_buffer_base" : 0x10081000,
+            "devid": (0xf001d830, 0x44),
             "csum_vec": 7,
         },
 }
@@ -564,7 +593,7 @@ class nxpprog:
         return decoded[0:linelen]
 
 
-    def read_block(self, addr, data_len):
+    def read_block(self, addr, data_len, fd = None):
         self.isp_command("R %d %d\n" % ( addr, data_len ))
 
         expected_lines = (data_len + self.uu_line_size - 1)/self.uu_line_size
@@ -589,9 +618,15 @@ class nxpprog:
             else:
                 self.dev_writeln(self.OK)
 
-            data += cdata
+            if fd:
+                fd.write(cdata)
+            else:
+                data += cdata
 
-        return data
+        if fd:
+            return None
+        else:
+            return data
 
     def write_ram_data(self, addr, data):
         image_len = len(data)
@@ -809,10 +844,12 @@ if __name__ == "__main__":
     control = 0
     filetype = "bin"
     select_bank = 0
-    bank = 0
+    read = 0
+    readlen = 0
 
     optlist, args = getopt.getopt(sys.argv[1:], '',
-            ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=', 'filetype=', 'bank=',
+            ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
+                'filetype=', 'bank=', 'read=', 'len=',
                 'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
 
     for o, a in optlist:
@@ -850,6 +887,11 @@ if __name__ == "__main__":
         elif o == "--bank":
             select_bank = 1
             bank = int(a)
+        elif o == "--read":
+            read = 1
+            readfile = a
+        elif o == "--len":
+            readlen = int(a)
         else:
             panic("unhandled option: %s" % o)
 
@@ -873,6 +915,12 @@ if __name__ == "__main__":
         prog.start(startaddr)
     elif select_bank:
         prog.select_bank(bank)
+    elif read:
+        if not readlen:
+            panic("read length is 0")
+        fd = open(readfile, "w")
+        prog.read_block(flash_addr_base, readlen, fd)
+        fd.close()
     else:
         if len(args) != 2:
             syntax()
