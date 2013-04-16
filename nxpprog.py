@@ -211,54 +211,63 @@ cpu_parms = {
             "flash_prog_buffer_base" : 0x10001000,
             "csum_vec": 7,
             "devid": 0x26013f37,
+            "cpu_type": "thumb",
         },
         "lpc1766" : {
             "flash_sector" : flash_sector_lpc17xx,
             "flash_prog_buffer_base" : 0x10001000,
             "csum_vec": 7,
             "devid": 0x26013f33,
+            "cpu_type": "thumb",
         },
         "lpc1765" : {
             "flash_sector" : flash_sector_lpc17xx,
             "flash_prog_buffer_base" : 0x10001000,
             "csum_vec": 7,
             "devid": 0x26013733,
+            "cpu_type": "thumb",
         },
         "lpc1764" : {
             "flash_sector" : flash_sector_lpc17xx,
             "flash_prog_buffer_base" : 0x10001000,
             "csum_vec": 7,
             "devid": 0x26011922,
+            "cpu_type": "thumb",
         },
         "lpc1758" : {
             "flash_sector" : flash_sector_lpc17xx,
             "flash_prog_buffer_base" : 0x10001000,
             "csum_vec": 7,
             "devid": 0x26013f34,
+            "cpu_type": "thumb",
         },
         "lpc1756" : {
             "flash_sector" : flash_sector_lpc17xx,
             "flash_prog_buffer_base" : 0x10001000,
             "csum_vec": 7,
             "devid": 0x26011723,
+            "cpu_type": "thumb",
         },
         "lpc1754" : {
             "flash_sector" : flash_sector_lpc17xx,
             "flash_prog_buffer_base" : 0x10001000,
             "csum_vec": 7,
             "devid": 0x26011722,
+            "cpu_type": "thumb",
         },
         "lpc1752" : {
             "flash_sector" : flash_sector_lpc17xx,
             "flash_prog_buffer_base" : 0x10001000,
             "csum_vec": 7,
             "devid": 0x26001121,
+            "cpu_type": "thumb",
         },
         "lpc1751" : {
             "flash_sector" : flash_sector_lpc17xx,
             "flash_prog_buffer_base" : 0x10001000,
             "csum_vec": 7,
             "devid": 0x26001110,
+            "cpu_type": "thumb",
         },
         "lpc1114" : {
             "flash_sector" : flash_sector_lpc11xx,
@@ -272,6 +281,7 @@ cpu_parms = {
             "flash_bank_addr": 0x1a000000,
             "flash_prog_buffer_base" : 0x10081000,
             "csum_vec": 7,
+            "cpu_type": "thumb",
         },
         "lpc1833" : {
             "flash_sector" : flash_sector_lpc18xx,
@@ -280,6 +290,7 @@ cpu_parms = {
             "flash_prog_buffer_base" : 0x10081000,
             "devid": (0xf001da30, 0x44),
             "csum_vec": 7,
+            "cpu_type": "thumb",
         },
         "lpc1837" : {
             "flash_sector" : flash_sector_lpc18xx,
@@ -287,6 +298,7 @@ cpu_parms = {
             "flash_prog_buffer_base" : 0x10081000,
             "devid": (0xf001da30, 0),
             "csum_vec": 7,
+            "cpu_type": "thumb",
         },
         "lpc1853" : {
             "flash_sector" : flash_sector_lpc18xx,
@@ -295,6 +307,7 @@ cpu_parms = {
             "flash_prog_buffer_base" : 0x10081000,
             "devid": (0xf001d830, 0),
             "csum_vec": 7,
+            "cpu_type": "thumb",
         },
         "lpc1857" : {
             "flash_sector" : flash_sector_lpc18xx,
@@ -302,6 +315,7 @@ cpu_parms = {
             "flash_prog_buffer_base" : 0x10081000,
             "devid": (0xf001d830, 0x44),
             "csum_vec": 7,
+            "cpu_type": "thumb",
         },
 }
 
@@ -328,10 +342,11 @@ def panic(str):
 
 def syntax():
     panic(
-"""%s <serial device> <image_file> : program image file to processor.
-%s --eraseonly <serial device> : erase the device's flash.
-%s --start=<addr> <serial device> : start the device at <addr>
-%s --list : list supported processors.
+"""{0} <serial device> <image_file> : program image file to processor.
+{0} --start=<addr> <serial device> : start the device at <addr>
+{0} --read=<file> --addr=<address> --len=<length>:
+            read length bytes from address and dump them to a file
+{0} --list : list supported processors.
 options:
     --cpu=<cpu> : set the cpu type.
     --oscfreq=<freq> : set the oscillator frequency.
@@ -342,8 +357,8 @@ options:
     --eraseonly : don't program, just erase. Implies --eraseall.
     --eraseall : erase all flash not just the area written to.
     --filetype=[ihex|bin]: set filetype to intel hex format or raw binary
-           """ % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0]))
-
+    --bank=[0|1]: select bank for devices with flash banks
+""".format(sys.argv[0]))
 
 class nxpprog:
     def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0):
@@ -797,7 +812,8 @@ class nxpprog:
                     (flash_addr_start, ram_addr, a_ram_block))
 
 
-    def start(self, addr = 0, mode = "arm"):
+    def start(self, addr = 0):
+        mode = self.get_cpu_parm("cpu_type", "arm")
         # start image at address 0
         if mode == "arm":
             m = "A"
@@ -881,7 +897,7 @@ if __name__ == "__main__":
         elif o == "--start":
             start = 1
             if a:
-                startaddr = a
+                startaddr = int(a, 0)
             else:
                 startaddr = 0
         elif o == "--bank":
@@ -906,8 +922,6 @@ if __name__ == "__main__":
     device = args[0]
 
     prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control)
-
-    #data = prog.read_block(0x1a000000, 1024)
 
     if erase_only:
         prog.erase_all()
@@ -935,4 +949,4 @@ if __name__ == "__main__":
 
         prog.prog_image(image, flash_addr_base, erase_all)
 
-        #prog.start()
+        prog.start(flash_addr_base)
