@@ -4,8 +4,8 @@ import string
 
 class data_rec:
     def __init__(self, addr, data):
-        if type(data) != type(""):
-            raise Exception("data is not a string")
+        if type(data) != type(b""):
+            raise Exception("data is not a binary string")
         self.addr = addr
         self.data = data
 
@@ -31,7 +31,7 @@ class ihex:
 
         line_no = 0
         for line in fd:
-            l = string.strip(line)
+            l = line.strip()
             line_no += 1
             if l[0] != ":":
                 raise Exception("invalid initial character '%s' line %d",
@@ -79,10 +79,7 @@ class ihex:
         return (list[0], self.multi_val(list[1:3]), list[3], list[4:-1])
 
     def intlist_tostr(self, list):
-        data = ""
-        for c in list:
-            data += chr(c)
-        return data
+        return bytes(list)
 
     def multi_val(self, data):
         sum = 0
@@ -95,17 +92,17 @@ class ihex:
             print(d)
 
     def padding(self, fill, len):
-        s = ""
+        s = b''
         for i in range(0, len):
-            s += fill
+            s += bytes([fill])
         return s
 
-    def flatten(self, fill = chr(0xff)):
+    def flatten(self, fill = 0xff):
         sort_list = []
         for d in self.data:
             sort_list.append((d.addr, d.data))
-        sort_list.sort(lambda x,y: cmp(x[0], y[0]))
-        data = ""
+        sort_list.sort(key=lambda x: x[0])
+        data = b''
         last_addr = sort_list[0][0]
         start_addr = last_addr
         for e in sort_list:

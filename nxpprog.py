@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright (c) 2009 Brian Murphy <brian@murphy.dk>
 # 
@@ -363,8 +363,8 @@ options:
 class nxpprog:
     def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0):
         self.echo_on = 1
-        self.OK = "OK"
-        self.RESEND = "RESEND"
+        self.OK = 'OK'
+        self.RESEND = 'RESEND'
         self.sync_str = 'Synchronized'
 
         # for calculations in 32 bit modulo arithmetic
@@ -456,37 +456,32 @@ class nxpprog:
         self.serdev.write(data)
 
     def dev_writeln(self, data):
-        self.serdev.write(data)
-        self.serdev.write("\r\n")
+        self.serdev.write(bytes(data, 'UTF-8'))
+        self.serdev.write(b'\r\n')
 
     def dev_readline(self, timeout=None):
         if timeout:
             ot = self.serdev.getTimeout()
             self.serdev.setTimeout(timeout)
 
-        line = ""
+        line = b''
         while 1:
             c = self.serdev.read(1)
             if not c:
                 break
-            #print "%x" % ord(c)
-            if c == '\r':
+            if c == b'\r':
                 continue
-            if c == '\n':
+            if c == b'\n':
                 if not line:
                     continue
                 else:
                     break
             line += c
 
-        #print("r: '%s'" % line)
-
-        #dump("r", line)
-
         if timeout:
             self.serdev.setTimeout(ot)
 
-        return line
+        return line.decode("UTF-8")
 
     # something suspicious here in tty setup - these should be the same
     def str_in(self, str):
@@ -512,7 +507,7 @@ class nxpprog:
 
 
     def sync(self, osc):
-        self.dev_write("?")
+        self.dev_write(b'?')
         s = self.dev_readline()
         if not s:
             panic("sync timeout")
@@ -529,14 +524,14 @@ class nxpprog:
         if s != self.OK:
             panic("not ok")
 
-        self.dev_writeln("%d" % osc)
+        self.dev_writeln('%d' % osc)
         # discard echo
         s = self.dev_readline()
         s = self.dev_readline()
         if s != self.OK:
             panic("osc not ok")
 
-        self.dev_writeln("A 0")
+        self.dev_writeln('A 0')
         # discard echo
         s = self.dev_readline()
         s = self.dev_readline()
@@ -546,10 +541,10 @@ class nxpprog:
         self.echo_on = 0
 
 
-    def sum(self, str):
+    def sum(self, data):
         s = 0
-        for i in str:
-            s += ord(i)
+        for i in data:
+            s += i
         return s
 
 
@@ -567,7 +562,7 @@ class nxpprog:
             self.dev_write(bstr)
 
 
-        self.dev_writeln("%s" % self.sum(data))
+        self.dev_writeln('%s' % self.sum(data))
         status = self.dev_readline()
         if not status:
             return "timeout"
@@ -674,10 +669,10 @@ class nxpprog:
 
 
     def bytestr(self, ch, count):
-        str = ''
+        data = b''
         for i in range(0, count):
-            str += ch
-        return str
+            data += bytes([ch])
+        return data
 
 
     def insert_csum(self, orig_image):
@@ -704,7 +699,7 @@ class nxpprog:
 
         intvecs_list[valid_image_csum_vec] = csum
 
-        image = ''
+        image = b''
         for vecval in intvecs_list:
             image += struct.pack("<I", vecval)
 
@@ -778,7 +773,7 @@ class nxpprog:
         pad_count_rem = image_len % ram_block
         if pad_count_rem != 0:
             pad_count = ram_block - pad_count_rem
-            image += self.bytestr('\xff', pad_count)
+            image += self.bytestr(0xff, pad_count)
             image_len += pad_count
 
         log("padding with %d bytes" % pad_count)
