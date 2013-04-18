@@ -483,10 +483,6 @@ class nxpprog:
 
         return line.decode("UTF-8")
 
-    # something suspicious here in tty setup - these should be the same
-    def str_in(self, str):
-        return "%s\r\n" % str
-
     def errexit(self, str, status):
         if not status:
             panic("%s: timeout" % str)
