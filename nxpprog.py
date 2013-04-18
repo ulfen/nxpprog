@@ -278,7 +278,7 @@ cpu_parms = {
         # lpc18xx
         "lpc1832" : {
             "flash_sector" : flash_sector_lpc18xx,
-            "flash_bank_addr": 0x1a000000,
+            "flash_bank_addr": (0x1a000000),
             "flash_prog_buffer_base" : 0x10081000,
             "csum_vec": 7,
             "cpu_type": "thumb",
@@ -398,12 +398,12 @@ class nxpprog:
 
         self.connection_init(osc_freq)
 
-        #banks = self.get_cpu_parm("flash_bank_addr", 0)
+        self.banks = self.get_cpu_parm("flash_bank_addr", 0)
 
-        if 1:
-            self.sector_commands_need_bank = 1
-        else:
+        if self.banks == 0:
             self.sector_commands_need_bank = 0
+        else:
+            self.sector_commands_need_bank = 1
 
     # put the chip in isp mode by resetting it using RTS and DTR signals
     # this is of course only possible if the signals are connected in
@@ -760,8 +760,11 @@ class nxpprog:
         ram_block = self.get_cpu_parm("flash_prog_buffer_size",
                 flash_prog_buffer_size_default)
 
-        #if self.get_cpu_parm("intvec_checksum", 1) and flash_addr_base == 0:
-        if self.get_cpu_parm("intvec_checksum", 1): #and flash_addr_base == 0:
+        # if the image starts at the start of a flash bank then make it bootable
+        # by inserting a checksum at the right place in the vector table
+        if self.banks == 0 and flash_addr_base == 0:
+            image = self.insert_csum(image)
+        elif flash_addr_base in self.banks:
             image = self.insert_csum(image)
 
         image_len = len(image)
