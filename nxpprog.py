@@ -276,6 +276,14 @@ cpu_parms = {
             "flash_prog_buffer_size" : 1024
         },
         # lpc18xx
+        "lpc1817" : {
+            "flash_sector" : flash_sector_lpc18xx,
+            "flash_bank_addr": (0x1a000000, 0x1b000000),
+            "flash_prog_buffer_base" : 0x10081000,
+            "devid": (0xF001DB3F, 0),
+            "csum_vec": 7,
+            "cpu_type": "thumb",
+        },
         "lpc1832" : {
             "flash_sector" : flash_sector_lpc18xx,
             "flash_bank_addr": (0x1a000000),
