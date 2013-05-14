@@ -14,6 +14,7 @@ release:
 	tar -cjvf uploads/$(RELEASE_NAME).tar.bz2 $(RELEASE_FILES)
 	zip uploads/$(RELEASE_NAME).zip $(RELEASE_FILES)
 	cp $(RELEASE_NOTE) uploads
+	cp $(RELEASE_NOTE) uploads/README
 
 clean:
 	rm -fr uploads
