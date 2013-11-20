@@ -478,7 +478,10 @@ class nxpprog:
             if not c:
                 break
             if c == b'\r':
-                continue
+                if not line:
+                    continue
+                else:
+                    break
             if c == b'\n':
                 if not line:
                     continue
