@@ -773,8 +773,9 @@ class nxpprog:
 
         # if the image starts at the start of a flash bank then make it bootable
         # by inserting a checksum at the right place in the vector table
-        if self.banks == 0 and flash_addr_base == 0:
-            image = self.insert_csum(image)
+        if self.banks == 0:
+            if flash_addr_base == 0:
+                image = self.insert_csum(image)
         elif flash_addr_base in self.banks:
             image = self.insert_csum(image)
 
