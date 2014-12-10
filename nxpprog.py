@@ -281,6 +281,7 @@ cpu_parms = {
             "flash_bank_addr": (0x1a000000, 0x1b000000),
             "flash_prog_buffer_base" : 0x10081000,
             "devid": (0xF001DB3F, 0),
+            "devid_word1_mask": 0xff,
             "csum_vec": 7,
             "cpu_type": "thumb",
         },
@@ -448,6 +449,14 @@ class nxpprog:
                 cpu_devid = cpu_parms[dcpu].get("devid")
                 if not cpu_devid:
                     continue
+
+                # mask devid word1
+                devid_word1_mask = cpu_parms[dcpu].get("devid_word1_mask")
+                if devid_word1_mask and devid[0] == cpu_devid[0] and (devid[1] & devid_word1_mask) == (cpu_devid[1] & devid_word1_mask):
+                    log("detected %s" % dcpu)
+                    self.cpu = dcpu
+                    break
+
                 if devid == cpu_devid:
                     log("detected %s" % dcpu)
                     self.cpu = dcpu
