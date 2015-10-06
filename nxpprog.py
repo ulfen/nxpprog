@@ -28,6 +28,7 @@ import sys
 import struct
 import getopt
 import serial # pyserial
+import socket
 import time
 
 import ihex
@@ -409,7 +410,7 @@ class SerialDevice(object):
         # device wants Xon Xoff flow control
         if xonxoff:
             self._serial.setXonXoff(1)
-        
+
         # reset pin is controlled by DTR implying int0 is controlled by RTS
         self.reset_pin = "dtr"
 
@@ -474,8 +475,46 @@ class SerialDevice(object):
 
         return line.decode("UTF-8")
 
+class UdpDevice(object):
+    def __init__(self, address):
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._sock.settimeout(5)
+        self._inet_addr = address[0]
+        self._udp_port = address[1]
+        self._eth_addr = address[2]
+
+        if self._eth_addr:
+            import subprocess
+            # Try add host to ARP table
+            obj = subprocess.Popen(['arp', '-s', self._inet_addr, self._eth_addr])
+            res = obj.communicate()
+            stdout_text = res[0].decode('ascii', 'ignore') if res[0] else ""
+            stderr_text = res[1].decode('ascii', 'ignore') if res[0] else ""
+            if obj.returncode or stderr_text:
+                panic('Failed to register IP address')
+
+        self._sock.bind(('', self._udp_port))
+
+    def write(self, data):
+        self._sock.sendto(data, (self._inet_addr, self._udp_port))
+
+    def readline(self, timeout=None):
+        if timeout:
+            ot = self._sock.gettimeout()
+            self._sock.settimeout(timeout)
+
+        try:
+            line, addr = self._sock.recvfrom(1024)
+        except Exception as e:
+            line = ""
+
+        if timeout:
+            self._sock.settimeout(ot)
+
+        return line.decode("UTF-8").replace('\r','').replace('\n','')
+
 class nxpprog:
-    def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0):
+    def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0, address = None):
         self.echo_on = 1
         self.OK = 'OK'
         self.RESEND = 'RESEND'
@@ -489,7 +528,10 @@ class nxpprog:
         # uuencoded block length
         self.uu_block_size = self.uu_line_size * 20
 
-        self.device = SerialDevice(device, baud, xonxoff, control)
+        if address:
+            self.device = UdpDevice(address)
+        else:
+            self.device = SerialDevice(device, baud, xonxoff, control)
 
         self.cpu = cpu
 
@@ -942,10 +984,14 @@ if __name__ == "__main__":
     select_bank = 0
     read = 0
     readlen = 0
+    udp = False
+    port = 41825
+    mac = "" # "0C-1D-12-E0-1F-10"
 
     optlist, args = getopt.getopt(sys.argv[1:], '',
             ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
                 'filetype=', 'bank=', 'read=', 'len=',
+                'udp', 'port=', 'mac=',
                 'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
 
     for o, a in optlist:
@@ -988,6 +1034,12 @@ if __name__ == "__main__":
             readfile = a
         elif o == "--len":
             readlen = int(a)
+        elif o == "--udp":
+            udp = True
+        elif o == "--port":
+            port = int(a)
+        elif o == "--mac":
+            mac = a
         else:
             panic("unhandled option: %s" % o)
 
@@ -1001,7 +1053,7 @@ if __name__ == "__main__":
 
     device = args[0]
 
-    prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control)
+    prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control, (device, port, mac) if udp else None)
 
     if erase_only:
         prog.erase_all()
