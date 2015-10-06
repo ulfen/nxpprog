@@ -209,7 +209,7 @@ cpu_parms = {
         # lpc17xx
         "lpc1769" : {
             "flash_sector" : flash_sector_lpc17xx,
-            "flash_prog_buffer_base" : 0x10001000,
+            "flash_prog_buffer_base" : 0x10000200,
             "csum_vec": 7,
             "devid": 0x26113f37,
             "cpu_type": "thumb",
