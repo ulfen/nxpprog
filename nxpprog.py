@@ -915,7 +915,7 @@ class nxpprog:
         if erase_all:
             self.erase_all()
         else:
-            self.erase_flash(flash_addr_base, flash_addr_base + image_len)
+            self.erase_flash(flash_addr_base, flash_addr_base + image_len - 1)
 
         for image_index in range(0, image_len, ram_block):
             a_ram_block = image_len - image_index
