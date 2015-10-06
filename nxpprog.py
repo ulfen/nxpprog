@@ -905,7 +905,7 @@ if __name__ == "__main__":
     xonxoff = 0
     start = 0
     control = 0
-    filetype = "bin"
+    filetype = "autodetect"
     select_bank = 0
     read = 0
     readlen = 0
@@ -987,6 +987,9 @@ if __name__ == "__main__":
             syntax()
 
         filename = args[1]
+
+        if filetype == "autodetect":
+            filetype = "ihex" if filename.endswith('hex') else "bin"
 
         if filetype == "ihex":
             ih = ihex.ihex(filename)
