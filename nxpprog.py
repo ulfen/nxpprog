@@ -681,7 +681,7 @@ class nxpprog:
     def write_ram_block(self, addr, data):
         data_len = len(data)
 
-        self.isp_command("W %d %d\n" % ( addr, data_len ))
+        self.isp_command("W %d %d" % ( addr, data_len ))
 
         for i in range(0, data_len, self.uu_line_size):
             c_line_size = data_len - i
@@ -734,7 +734,7 @@ class nxpprog:
 
 
     def read_block(self, addr, data_len, fd = None):
-        self.isp_command("R %d %d\n" % ( addr, data_len ))
+        self.isp_command("R %d %d" % ( addr, data_len ))
 
         expected_lines = (data_len + self.uu_line_size - 1)/self.uu_line_size
 
