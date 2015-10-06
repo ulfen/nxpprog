@@ -79,7 +79,10 @@ class ihex:
         return (list[0], self.multi_val(list[1:3]), list[3], list[4:-1])
 
     def intlist_tostr(self, list):
-        return bytes(list)
+        data = bytes(list)
+        if isinstance(data, str):
+            data = b''.join([chr(x) for x in list])
+        return data
 
     def multi_val(self, data):
         sum = 0
@@ -92,10 +95,8 @@ class ihex:
             print(d)
 
     def padding(self, fill, len):
-        s = b''
-        for i in range(0, len):
-            s += bytes([fill])
-        return s
+        intlist = [fill for _ in range(len)]
+        return self.intlist_tostr(intlist)
 
     def flatten(self, fill = 0xff):
         sort_list = []

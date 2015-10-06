@@ -480,7 +480,7 @@ class nxpprog:
 
                 # mask devid word1
                 devid_word1_mask = cpu_parms[dcpu].get("devid_word1_mask")
-                if devid_word1_mask and devid[0] == cpu_devid[0] and (devid[1] & devid_word1_mask) == (cpu_devid[1] & devid_word1_mask):
+                if devid_word1_mask and isinstance(devid, tuple) and devid[0] == cpu_devid[0] and (devid[1] & devid_word1_mask) == (cpu_devid[1] & devid_word1_mask):
                     log("detected %s" % dcpu)
                     self.cpu = dcpu
                     break
@@ -501,7 +501,7 @@ class nxpprog:
         self.serdev.write(data)
 
     def dev_writeln(self, data):
-        self.serdev.write(bytes(data, 'UTF-8'))
+        self.serdev.write(bytes(data.encode('UTF-8')))
         self.serdev.write(b'\r\n')
 
     def dev_readline(self, timeout=None):
@@ -587,8 +587,12 @@ class nxpprog:
 
     def sum(self, data):
         s = 0
-        for i in data:
-            s += i
+        if isinstance(data, str):
+            for ch in data:
+                s += ord(ch)
+        else:
+            for i in data:
+                s += i
         return s
 
 
