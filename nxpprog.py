@@ -400,6 +400,7 @@ options:
 
 class SerialDevice(object):
     def __init__(self, device, baud, xonxoff = 0, control = 0):
+        self.echo_on = 1
         self._serial = serial.Serial(device, baud)
 
         # set a two second timeout just in case there is nothing connected
@@ -477,6 +478,7 @@ class SerialDevice(object):
 
 class UdpDevice(object):
     def __init__(self, address):
+        self.echo_on = 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.settimeout(5)
         self._inet_addr = address[0]
@@ -515,7 +517,6 @@ class UdpDevice(object):
 
 class nxpprog:
     def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0, address = None):
-        self.echo_on = 1
         self.OK = 'OK'
         self.RESEND = 'RESEND'
         self.sync_str = 'Synchronized'
@@ -532,6 +533,8 @@ class nxpprog:
             self.device = UdpDevice(address)
         else:
             self.device = SerialDevice(device, baud, xonxoff, control)
+
+        self.echo_on = self.device.echo_on
 
         self.cpu = cpu
 
@@ -635,27 +638,31 @@ class nxpprog:
 
         self.dev_writeln(self.sync_str)
         # recieve our echoed data
-        s = self.dev_readline()
-        if s != self.sync_str:
-            panic("no sync string")
+        if self.echo_on:
+            s = self.dev_readline()
+            if s != self.sync_str:
+                panic("no sync string")
 
         s = self.dev_readline()
         if s != self.OK:
             panic("not ok")
 
-        self.dev_writeln('%d' % osc)
-        # discard echo
-        s = self.dev_readline()
-        s = self.dev_readline()
-        if s != self.OK:
-            panic("osc not ok")
+        if isinstance(self.device, SerialDevice):
+            self.dev_writeln('%d' % osc)
+            # discard echo
+            if self.echo_on:
+                s = self.dev_readline()
+            s = self.dev_readline()
+            if s != self.OK:
+                panic("osc not ok")
 
-        self.dev_writeln('A 0')
-        # discard echo
-        s = self.dev_readline()
-        s = self.dev_readline()
-        if int(s):
-            panic("echo disable failed")
+            self.dev_writeln('A 0')
+            # discard echo
+            if self.echo_on:
+                s = self.dev_readline()
+            s = self.dev_readline()
+            if int(s):
+                panic("echo disable failed")
 
         self.echo_on = 0
 
