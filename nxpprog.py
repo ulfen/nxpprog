@@ -536,7 +536,31 @@ class nxpprog:
             panic("%s: timeout" % str)
         err = int(status)
         if err != 0:
-            panic("%s: %d" % (str, err))
+            error_desc = [
+                'CMD_SUCCESS: Command is executed successfully',
+                'INVALID_COMMAND: Invalid command',
+                'SRC_ADDR_ERROR: Source address is not on word boundary',
+                'DST_ADDR_ERROR: Destination address is not on word or 256 byte boundary',
+                'SRC_ADDR_NOT_MAPPED:  Source address is not mapped in the memory map',
+                'DST_ADDR_NOT_MAPPED: Destination address is not mapped in the memory map',
+                'COUNT_ERROR: Byte count is not multiple of 4 or is not a permitted value',
+                'INVALID_SECTOR: Sector number is invalid or end sector number is greater than start sector number',
+                'SECTOR_NOT_BLANK: Sector is not blank',
+                'SECTOR_NOT_PREPARED_FOR_WRITE_OPERATION: Command to prepare sector for write operation was not executed',
+                'COMPARE_ERROR: Source and destination data not equal',
+                'BUSY: Flash programming hardware interface is busy',
+                'PARAM_ERROR: Insufficient number of parameters or invalid parameter',
+                'ADDR_ERROR: Address not on word boundary',
+                'ADDR_NOT_MAPPED: Address is not mapped in the memory map',
+                'CMD_LOCKED: Command is locked',
+                'INVALID_CODE: Unlock code is invalid',
+                'INVALID_BAUD_RATE: Invalid baud rate setting',
+                'INVALID_STOP_BIT: Invalid stop bit setting',
+                'CODE_READ_PROTECTION_ENABLED: Code read protection enabled'
+                ]
+            str = str.replace('\r','').replace('\n','')
+            errstr = error_desc[err] if err < len(error_desc) else ""
+            panic("%s: %d - %s" % (str, err, errstr))
 
 
     def isp_command(self, cmd):
