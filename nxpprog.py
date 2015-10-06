@@ -397,33 +397,18 @@ options:
     --bank=[0|1]: select bank for devices with flash banks
 """.format(sys.argv[0]))
 
-class nxpprog:
-    def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0):
-        self.echo_on = 1
-        self.OK = 'OK'
-        self.RESEND = 'RESEND'
-        self.sync_str = 'Synchronized'
-
-        # for calculations in 32 bit modulo arithmetic
-        self.U32_MOD = (2 ** 32)
-
-        # uuencoded line length
-        self.uu_line_size = 45
-        # uuencoded block length
-        self.uu_block_size = self.uu_line_size * 20
-
-        self.serdev = serial.Serial(device, baud)
+class SerialDevice(object):
+    def __init__(self, device, baud, xonxoff = 0, control = 0):
+        self._serial = serial.Serial(device, baud)
 
         # set a two second timeout just in case there is nothing connected
         # or the device is in the wrong mode.
         # This timeout is too short for slow baud rates but who wants to
         # use them?
-        self.serdev.setTimeout(5)
+        self._serial.setTimeout(5)
         # device wants Xon Xoff flow control
         if xonxoff:
-            self.serdev.setXonXoff(1)
-
-        self.cpu = cpu
+            self._serial.setXonXoff(1)
         
         # reset pin is controlled by DTR implying int0 is controlled by RTS
         self.reset_pin = "dtr"
@@ -431,16 +416,7 @@ class nxpprog:
         if control:
             self.isp_mode()
 
-        self.serdev.flushInput()
-
-        self.connection_init(osc_freq)
-
-        self.banks = self.get_cpu_parm("flash_bank_addr", 0)
-
-        if self.banks == 0:
-            self.sector_commands_need_bank = 0
-        else:
-            self.sector_commands_need_bank = 1
+        self._serial.flushInput()
 
     # put the chip in isp mode by resetting it using RTS and DTR signals
     # this is of course only possible if the signals are connected in
@@ -457,16 +433,74 @@ class nxpprog:
 
     def reset(self, level):
         if self.reset_pin == "rts":
-            self.serdev.setRTS(level)
+            self._serial.setRTS(level)
         else:
-            self.serdev.setDTR(level)
+            self._serial.setDTR(level)
 
     def int0(self, level):
         # if reset pin is rts int0 pin is dtr
         if self.reset_pin == "rts":
-            self.serdev.setDTR(level)
+            self._serial.setDTR(level)
         else:
-            self.serdev.setRTS(level)
+            self._serial.setRTS(level)
+
+    def write(self, data):
+        self._serial.write(data)
+
+    def readline(self, timeout=None):
+        if timeout:
+            ot = self._serial.getTimeout()
+            self._serial.setTimeout(timeout)
+
+        line = b''
+        while 1:
+            c = self._serial.read(1)
+            if not c:
+                break
+            if c == b'\r':
+                if not line:
+                    continue
+                else:
+                    break
+            if c == b'\n':
+                if not line:
+                    continue
+                else:
+                    break
+            line += c
+
+        if timeout:
+            self._serial.setTimeout(ot)
+
+        return line.decode("UTF-8")
+
+class nxpprog:
+    def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0):
+        self.echo_on = 1
+        self.OK = 'OK'
+        self.RESEND = 'RESEND'
+        self.sync_str = 'Synchronized'
+
+        # for calculations in 32 bit modulo arithmetic
+        self.U32_MOD = (2 ** 32)
+
+        # uuencoded line length
+        self.uu_line_size = 45
+        # uuencoded block length
+        self.uu_block_size = self.uu_line_size * 20
+
+        self.device = SerialDevice(device, baud, xonxoff, control)
+
+        self.cpu = cpu
+
+        self.connection_init(osc_freq)
+
+        self.banks = self.get_cpu_parm("flash_bank_addr", 0)
+
+        if self.banks == 0:
+            self.sector_commands_need_bank = 0
+        else:
+            self.sector_commands_need_bank = 1
 
     def connection_init(self, osc_freq):
         self.sync(osc_freq)
@@ -498,38 +532,13 @@ class nxpprog:
 
 
     def dev_write(self, data):
-        self.serdev.write(data)
+        self.device.write(data)
 
     def dev_writeln(self, data):
-        self.serdev.write(bytes(data.encode('UTF-8')))
-        self.serdev.write(b'\r\n')
+        self.device.write(bytes((data + b'\r\n').encode('UTF-8')))
 
     def dev_readline(self, timeout=None):
-        if timeout:
-            ot = self.serdev.getTimeout()
-            self.serdev.setTimeout(timeout)
-
-        line = b''
-        while 1:
-            c = self.serdev.read(1)
-            if not c:
-                break
-            if c == b'\r':
-                if not line:
-                    continue
-                else:
-                    break
-            if c == b'\n':
-                if not line:
-                    continue
-                else:
-                    break
-            line += c
-
-        if timeout:
-            self.serdev.setTimeout(ot)
-
-        return line.decode("UTF-8")
+        return self.device.readline(timeout)
 
     def errexit(self, str, status):
         if not status:
