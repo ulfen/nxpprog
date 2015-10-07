@@ -24,6 +24,7 @@
 # processors.
 
 import binascii
+import os
 import sys
 import struct
 import getopt
@@ -380,10 +381,12 @@ def panic(str):
 
 def syntax():
     panic(
-"""{0} <serial device> <image_file> : program image file to processor.
-{0} --start=<addr> <serial device> : start the device at <addr>
+"""\
+{0} <serial device> <image_file> : program image file to processor.
+{0} --udp <ip address> <image_file> : program processor using Ethernet.
+{0} --start=<addr> <serial device> : start the device at <addr>.
 {0} --read=<file> --addr=<address> --len=<length>:
-            read length bytes from address and dump them to a file
+            read length bytes from address and dump them to a file.
 {0} --list : list supported processors.
 options:
     --cpu=<cpu> : set the cpu type.
@@ -394,9 +397,11 @@ options:
     --addr=<image start address> : set the base address for the image.
     --eraseonly : don't program, just erase. Implies --eraseall.
     --eraseall : erase all flash not just the area written to.
-    --filetype=[ihex|bin]: set filetype to intel hex format or raw binary
-    --bank=[0|1]: select bank for devices with flash banks
-""".format(sys.argv[0]))
+    --filetype=[ihex|bin] : set filetype to intel hex format or raw binary.
+    --bank=[0|1] : select bank for devices with flash banks.
+    --port=<udp port> : UDP port number to use (default 41825).
+    --mac=<mac address> : MAC address to associate IP address with.\
+""".format(os.path.basename(sys.argv[0])))
 
 class SerialDevice(object):
     def __init__(self, device, baud, xonxoff = 0, control = 0):
