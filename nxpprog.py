@@ -488,12 +488,16 @@ class UdpDevice(object):
         if self._eth_addr:
             import subprocess
             # Try add host to ARP table
-            obj = subprocess.Popen(['arp', '-s', self._inet_addr, self._eth_addr])
+            obj = subprocess.Popen(['arp', '-s', self._inet_addr, self._eth_addr],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   shell=True)
             res = obj.communicate()
             stdout_text = res[0].decode('ascii', 'ignore') if res[0] else ""
-            stderr_text = res[1].decode('ascii', 'ignore') if res[0] else ""
+            stderr_text = res[1].decode('ascii', 'ignore') if res[1] else ""
             if obj.returncode or stderr_text:
-                panic('Failed to register IP address')
+                panic("Failed to register IP address " +
+                      "(Administrative privileges may be required)\r\n" + 
+                      stderr_text.replace('\r', '').replace('\n', ''))
 
         self._sock.bind(('', self._udp_port))
 
