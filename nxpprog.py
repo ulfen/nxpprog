@@ -868,6 +868,11 @@ class nxpprog:
         else:
             self.isp_command("E %d %d" % (start_sector, end_sector))
 
+        if self.sector_commands_need_bank:
+            self.isp_command("I %d %d 0" % (start_sector, end_sector))
+        else:
+            self.isp_command("I %d %d" % (start_sector, end_sector))
+
 
     def erase_flash(self, start_addr, end_addr):
         start_sector = self.find_flash_sector(start_addr)
