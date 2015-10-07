@@ -1005,7 +1005,7 @@ def main(argv=None):
     read = False
     readlen = 0
     udp = False
-    port = 41825
+    port = -1
     mac = "" # "0C-1D-12-E0-1F-10"
 
     optlist, args = getopt.getopt(argv[1:], '',
@@ -1069,9 +1069,20 @@ def main(argv=None):
     if len(args) == 0:
         syntax()
 
-    log("cpu=%s oscfreq=%d baud=%d" % (cpu, osc_freq, baud))
-
     device = args[0]
+
+    if udp:
+        if ':' in device:
+            device, port = tuple(device.split(':'))
+            port = int(port)
+        if port < 0:
+            port = 41825
+        if mac:
+            log("cpu=%s ip=%s:%d mac=%s" % (cpu, device, port, mac))
+        else:
+            log("cpu=%s ip=%s:%d" % (cpu, device, port))
+    else:
+        log("cpu=%s oscfreq=%d baud=%d" % (cpu, osc_freq, baud))
 
     prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control, (device, port, mac) if udp else None)
 
