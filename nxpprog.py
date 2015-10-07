@@ -985,7 +985,10 @@ class nxpprog:
         return ret
 
 
-if __name__ == "__main__":
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+
     # defaults
     osc_freq = 16000 # kHz
     baud = 115200
@@ -1004,7 +1007,7 @@ if __name__ == "__main__":
     port = 41825
     mac = "" # "0C-1D-12-E0-1F-10"
 
-    optlist, args = getopt.getopt(sys.argv[1:], '',
+    optlist, args = getopt.getopt(argv[1:], '',
             ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
                 'filetype=', 'bank=', 'read=', 'len=',
                 'udp', 'port=', 'mac=',
@@ -1101,3 +1104,9 @@ if __name__ == "__main__":
         prog.prog_image(image, flash_addr_base, erase_all)
 
         prog.start(flash_addr_base)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
+
+# EOF
