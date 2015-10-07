@@ -388,6 +388,7 @@ def syntax():
 {0} --start=<addr> <serial device> : start the device at <addr>.
 {0} --read=<file> --addr=<address> --len=<length>:
             read length bytes from address and dump them to a file.
+{0} --serialnumber : get the device serial number
 {0} --list : list supported processors.
 options:
     --cpu=<cpu> : set the cpu type.
@@ -999,6 +1000,15 @@ class nxpprog:
         return ret
 
 
+    def get_serial_number(self):
+        self.isp_command("N")
+        id1 = self.dev_readline()
+        id2 = self.dev_readline(.2)
+        id3 = self.dev_readline(.2)
+        id4 = self.dev_readline(.2)
+        return ' '.join([id1, id2, id3, id4])
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv
@@ -1019,13 +1029,14 @@ def main(argv=None):
     select_bank = False
     read = False
     readlen = 0
+    get_serial_number = False
     udp = False
     port = -1
     mac = "" # "0C-1D-12-E0-1F-10"
 
     optlist, args = getopt.getopt(argv[1:], '',
             ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
-                'filetype=', 'bank=', 'read=', 'len=',
+                'filetype=', 'bank=', 'read=', 'len=', 'serialnumber',
                 'udp', 'port=', 'mac=', 'verify', 'verifyonly',
                 'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
 
@@ -1072,6 +1083,8 @@ def main(argv=None):
         elif o == "--read":
             read = True
             readfile = a
+        elif o == "--serialnumber":
+            get_serial_number = True
         elif o == "--len":
             readlen = int(a)
         elif o == "--udp":
@@ -1112,6 +1125,9 @@ def main(argv=None):
         prog.start(startaddr)
     elif select_bank:
         prog.select_bank(bank)
+    elif get_serial_number:
+        sn = prog.get_serial_number()
+        sys.stdout.write(sn)
     elif read:
         if not readlen:
             panic("read length is 0")
