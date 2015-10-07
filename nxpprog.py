@@ -1,17 +1,17 @@
 #!/usr/bin/python3
 #
 # Copyright (c) 2009 Brian Murphy <brian@murphy.dk>
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -68,7 +68,7 @@ flash_sector_lpc17xx = (
                         32, 32, 32, 32, 32, 32, 32,
                        )
 
-# flash sector sizes for lpc11xx processors                                                                                                          
+# flash sector sizes for lpc11xx processors
 flash_sector_lpc11xx = (
         4, 4, 4, 4, 4, 4, 4, 4,
         )
@@ -82,7 +82,7 @@ flash_sector_lpc18xx = (
 
 flash_prog_buffer_base_default = 0x40001000
 flash_prog_buffer_size_default = 4096
-   
+
 # cpu parameter table
 cpu_parms = {
         # 128k flash
@@ -362,6 +362,7 @@ cpu_parms = {
 def log(str):
     sys.stderr.write("%s\n" % str)
 
+
 def dump(name, str):
     sys.stderr.write("%s:\n" % name)
     ct = 0
@@ -404,8 +405,8 @@ options:
 """.format(os.path.basename(sys.argv[0])))
 
 class SerialDevice(object):
-    def __init__(self, device, baud, xonxoff = 0, control = 0):
-        self.echo_on = 1
+    def __init__(self, device, baud, xonxoff=False, control=False):
+        self.echo_on = True
         self._serial = serial.Serial(device, baud)
 
         # set a two second timeout just in case there is nothing connected
@@ -460,7 +461,7 @@ class SerialDevice(object):
             self._serial.setTimeout(timeout)
 
         line = b''
-        while 1:
+        while True:
             c = self._serial.read(1)
             if not c:
                 break
@@ -483,7 +484,7 @@ class SerialDevice(object):
 
 class UdpDevice(object):
     def __init__(self, address):
-        self.echo_on = 0
+        self.echo_on = False
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.settimeout(5)
         self._inet_addr = address[0]
@@ -501,7 +502,7 @@ class UdpDevice(object):
             stderr_text = res[1].decode('ascii', 'ignore') if res[1] else ""
             if obj.returncode or stderr_text:
                 panic("Failed to register IP address " +
-                      "(Administrative privileges may be required)\r\n" + 
+                      "(Administrative privileges may be required)\r\n" +
                       stderr_text.replace('\r', '').replace('\n', ''))
 
         self._sock.bind(('', self._udp_port))
@@ -525,7 +526,7 @@ class UdpDevice(object):
         return line.decode("UTF-8").replace('\r','').replace('\n','')
 
 class nxpprog:
-    def __init__(self, cpu, device, baud, osc_freq, xonxoff = 0, control = 0, address = None):
+    def __init__(self, cpu, device, baud, osc_freq, xonxoff=False, control=False, address=None):
         self.OK = 'OK'
         self.RESEND = 'RESEND'
         self.sync_str = 'Synchronized'
@@ -552,9 +553,9 @@ class nxpprog:
         self.banks = self.get_cpu_parm("flash_bank_addr", 0)
 
         if self.banks == 0:
-            self.sector_commands_need_bank = 0
+            self.sector_commands_need_bank = False
         else:
-            self.sector_commands_need_bank = 1
+            self.sector_commands_need_bank = True
 
     def connection_init(self, osc_freq):
         self.sync(osc_freq)
@@ -673,7 +674,7 @@ class nxpprog:
             if int(s):
                 panic("echo disable failed")
 
-        self.echo_on = 0
+        self.echo_on = False
 
 
     def sum(self, data):
@@ -709,7 +710,7 @@ class nxpprog:
             return "resend"
         if status == self.OK:
             return ""
-        
+
         # unknown status result
         panic(status)
 
@@ -723,7 +724,7 @@ class nxpprog:
             panic("error in line length")
 
         # pure python implementation - if this was C we would
-        # use bitshift operations here 
+        # use bitshift operations here
         decoded = ""
         for i in range(1, len(line), 4):
             c = 0
@@ -742,7 +743,7 @@ class nxpprog:
         return decoded[0:linelen]
 
 
-    def read_block(self, addr, data_len, fd = None):
+    def read_block(self, addr, data_len, fd=None):
         self.isp_command("R %d %d" % ( addr, data_len ))
 
         expected_lines = (data_len + self.uu_line_size - 1)/self.uu_line_size
@@ -795,7 +796,7 @@ class nxpprog:
     def find_flash_sector(self, addr):
         table = self.get_cpu_parm("flash_sector")
         flash_base_addr = self.get_cpu_parm("flash_bank_addr", 0)
-        if not flash_base_addr:
+        if flash_base_addr == 0:
             faddr = 0
         else:
             faddr = flash_base_addr[0] # fix to have a current flash bank
@@ -872,14 +873,14 @@ class nxpprog:
         self.erase_sectors(start_sector, end_sector)
 
 
-    def get_cpu_parm(self, key, default = None):
+    def get_cpu_parm(self, key, default=None):
         ccpu_parms = cpu_parms.get(self.cpu)
         if not ccpu_parms:
             panic("no parameters defined for cpu %s" % self.cpu)
         parm = ccpu_parms.get(key)
         if parm:
             return parm
-        if default != None:
+        if default is not None:
             return default
         else:
             panic("no value for required cpu parameter %s" % key)
@@ -892,8 +893,8 @@ class nxpprog:
         self.erase_sectors(0, end_sector)
 
 
-    def prog_image(self, image, flash_addr_base = 0, 
-            erase_all = 0):
+    def prog_image(self, image, flash_addr_base=0,
+            erase_all = False):
 
         # the base address of the ram block to be written to flash
         ram_addr = self.get_cpu_parm("flash_prog_buffer_base",
@@ -950,7 +951,7 @@ class nxpprog:
                     (flash_addr_start, ram_addr, a_ram_block))
 
 
-    def start(self, addr = 0):
+    def start(self, addr=0):
         mode = self.get_cpu_parm("cpu_type", "arm")
         # start image at address 0
         if mode == "arm":
@@ -994,14 +995,14 @@ def main(argv=None):
     baud = 115200
     cpu = "autodetect"
     flash_addr_base = 0
-    erase_all = 0
-    erase_only = 0
-    xonxoff = 0
-    start = 0
-    control = 0
+    erase_all = False
+    erase_only = False
+    xonxoff = False
+    start = False
+    control = False
     filetype = "autodetect"
-    select_bank = 0
-    read = 0
+    select_bank = False
+    read = False
     readlen = 0
     udp = False
     port = 41825
@@ -1022,7 +1023,7 @@ def main(argv=None):
         if o == "--cpu":
             cpu = a
         elif o == "--xonxoff":
-            xonxoff = 1
+            xonxoff = True
         elif o == "--oscfreq":
             osc_freq = int(a)
         elif o == "--addr":
@@ -1030,26 +1031,26 @@ def main(argv=None):
         elif o == "--baud":
             baud = int(a)
         elif o == "--eraseall":
-            erase_all = 1
+            erase_all = True
         elif o == "--eraseonly":
-            erase_only = 1
+            erase_only = True
         elif o == "--control":
-            control = 1
+            control = True
         elif o == "--filetype":
             filetype = a
             if not ( filetype == "bin" or filetype == "ihex" ):
                 panic("invalid filetype: %s" % filetype)
         elif o == "--start":
-            start = 1
+            start = True
             if a:
                 startaddr = int(a, 0)
             else:
                 startaddr = 0
         elif o == "--bank":
-            select_bank = 1
+            select_bank = True
             bank = int(a)
         elif o == "--read":
-            read = 1
+            read = True
             readfile = a
         elif o == "--len":
             readlen = int(a)
