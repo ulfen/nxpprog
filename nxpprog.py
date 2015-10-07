@@ -958,6 +958,10 @@ class nxpprog:
             self.isp_command("C %d %d %d" %
                     (flash_addr_start, ram_addr, a_ram_block))
 
+            # compare ram and flash
+            self.isp_command("M %d %d %d" %
+                    (flash_addr_start, ram_addr, a_ram_block))
+
 
     def verify_image(self, flash_addr_base, image):
         log("reading %d bytes from %x" % (flash_addr_base, len(image)))
