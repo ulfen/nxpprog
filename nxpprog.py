@@ -396,6 +396,8 @@ options:
     --xonxoff : enable xonxoff flow control.
     --control : use RTS and DTR to control reset and int0.
     --addr=<image start address> : set the base address for the image.
+    --verify : read the device after programming.
+    --verifyonly : don't program, just verify.
     --eraseonly : don't program, just erase. Implies --eraseall.
     --eraseall : erase all flash not just the area written to.
     --filetype=[ihex|bin] : set filetype to intel hex format or raw binary.
@@ -951,6 +953,17 @@ class nxpprog:
                     (flash_addr_start, ram_addr, a_ram_block))
 
 
+    def verify_image(self, flash_addr_base, image):
+        log("reading %d bytes from %x" % (flash_addr_base, len(image)))
+        data = self.read_block(flash_addr_base, len(image))
+
+        if len(data) != len(image):
+            panic("Verify failed! lengths differ")
+        for (i, (x, y)) in enumerate(zip(data, image)):
+            if x != y:
+                panic("Verify failed! content differ at location %d" % (flash_addr_base + i))
+
+
     def start(self, addr=0):
         mode = self.get_cpu_parm("cpu_type", "arm")
         # start image at address 0
@@ -997,6 +1010,8 @@ def main(argv=None):
     flash_addr_base = 0
     erase_all = False
     erase_only = False
+    verify = False
+    verify_only = False
     xonxoff = False
     start = False
     control = False
@@ -1011,7 +1026,7 @@ def main(argv=None):
     optlist, args = getopt.getopt(argv[1:], '',
             ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
                 'filetype=', 'bank=', 'read=', 'len=',
-                'udp', 'port=', 'mac=',
+                'udp', 'port=', 'mac=', 'verify', 'verifyonly',
                 'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
 
     for o, a in optlist:
@@ -1034,6 +1049,11 @@ def main(argv=None):
             erase_all = True
         elif o == "--eraseonly":
             erase_only = True
+        elif o == "--verify":
+            verify = True
+        elif o == "--verifyonly":
+            verify = True
+            verify_only = True
         elif o == "--control":
             control = True
         elif o == "--filetype":
@@ -1113,9 +1133,14 @@ def main(argv=None):
         else:
             image = open(filename, "rb").read()
 
-        prog.prog_image(image, flash_addr_base, erase_all)
+        if not verify_only:
+            prog.prog_image(image, flash_addr_base, erase_all)
 
-        prog.start(flash_addr_base)
+        if verify:
+            prog.verify_image(flash_addr_base, image)
+
+        if not verify_only:
+            prog.start(flash_addr_base)
 
 
 if __name__ == '__main__':
