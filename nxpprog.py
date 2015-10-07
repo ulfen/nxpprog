@@ -933,7 +933,7 @@ class nxpprog:
                 a_ram_block = ram_block
 
             flash_addr_start = image_index + flash_addr_base
-            flash_addr_end = flash_addr_start + a_ram_block
+            flash_addr_end = flash_addr_start + a_ram_block - 1
 
             log("writing %d bytes to %x" % (a_ram_block, flash_addr_start))
 
