@@ -767,7 +767,7 @@ class nxpprog:
             s = self.dev_readline()
 
             if int(s) != self.sum(cdata):
-                panic("checksum mismatch on read got %x expected %x" % (int(s), self.sum(data)))
+                panic("checksum mismatch on read got 0x%x expected 0x%x" % (int(s), self.sum(data)))
             else:
                 self.dev_writeln(self.OK)
 
@@ -943,7 +943,7 @@ class nxpprog:
             flash_addr_start = image_index + flash_addr_base
             flash_addr_end = flash_addr_start + a_ram_block - 1
 
-            log("writing %d bytes to %x" % (a_ram_block, flash_addr_start))
+            log("writing %d bytes to 0x%x" % (a_ram_block, flash_addr_start))
 
             self.write_ram_data(ram_addr,
                     image[image_index: image_index + a_ram_block])
@@ -964,14 +964,14 @@ class nxpprog:
 
 
     def verify_image(self, flash_addr_base, image):
-        log("reading %d bytes from %x" % (flash_addr_base, len(image)))
+        log("reading %d bytes from 0x%x" % (len(image), flash_addr_base))
         data = self.read_block(flash_addr_base, len(image))
 
         if len(data) != len(image):
             panic("Verify failed! lengths differ")
         for (i, (x, y)) in enumerate(zip(data, image)):
             if x != y:
-                panic("Verify failed! content differ at location %d" % (flash_addr_base + i))
+                panic("Verify failed! content differ at location 0x%x" % (flash_addr_base + i))
 
 
     def start(self, addr=0):
