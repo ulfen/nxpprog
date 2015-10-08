@@ -868,10 +868,12 @@ class nxpprog:
         else:
             self.isp_command("E %d %d" % (start_sector, end_sector))
 
-        if self.sector_commands_need_bank:
-            self.isp_command("I %d %d 0" % (start_sector, end_sector))
-        else:
-            self.isp_command("I %d %d" % (start_sector, end_sector))
+        for i in range(start_sector, end_sector+1):
+            if i != 0:
+                if self.sector_commands_need_bank:
+                    self.isp_command("I %d %d 0" % (i, i))
+                else:
+                    self.isp_command("I %d %d" % (i, i))
 
 
     def erase_flash(self, start_addr, end_addr):
@@ -959,8 +961,9 @@ class nxpprog:
                     (flash_addr_start, ram_addr, a_ram_block))
 
             # compare ram and flash
-            self.isp_command("M %d %d %d" %
-                    (flash_addr_start, ram_addr, a_ram_block))
+            if flash_addr_start != 0:
+                self.isp_command("M %d %d %d" %
+                        (flash_addr_start, ram_addr, a_ram_block))
 
 
     def verify_image(self, flash_addr_base, image):
@@ -970,7 +973,7 @@ class nxpprog:
         if len(data) != len(image):
             panic("Verify failed! lengths differ")
         for (i, (x, y)) in enumerate(zip(data, image)):
-            if x != y:
+            if (flash_addr_base + i) > 512 and x != y:
                 panic("Verify failed! content differ at location 0x%x" % (flash_addr_base + i))
 
 
