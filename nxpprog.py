@@ -858,7 +858,7 @@ class nxpprog:
             self.isp_command("P %d %d" % (start_sector, end_sector))
 
 
-    def erase_sectors(self, start_sector, end_sector):
+    def erase_sectors(self, start_sector, end_sector, verify=False):
         self.prepare_flash_sectors(start_sector, end_sector)
 
         log("erasing flash sectors %d-%d" % (start_sector, end_sector))
@@ -868,6 +868,11 @@ class nxpprog:
         else:
             self.isp_command("E %d %d" % (start_sector, end_sector))
 
+        if verify:
+            self.blank_check_sectors(start_sector, end_sector)
+
+
+    def blank_check_sectors(self, start_sector, end_sector):
         for i in range(start_sector, end_sector+1):
             if i != 0:
                 if self.sector_commands_need_bank:
@@ -876,11 +881,11 @@ class nxpprog:
                     self.isp_command("I %d %d" % (i, i))
 
 
-    def erase_flash(self, start_addr, end_addr):
+    def erase_flash(self, start_addr, end_addr, verify=False):
         start_sector = self.find_flash_sector(start_addr)
         end_sector = self.find_flash_sector(end_addr)
 
-        self.erase_sectors(start_sector, end_sector)
+        self.erase_sectors(start_sector, end_sector, verify)
 
 
     def get_cpu_parm(self, key, default=None):
@@ -896,15 +901,15 @@ class nxpprog:
             panic("no value for required cpu parameter %s" % key)
 
 
-    def erase_all(self):
+    def erase_all(self, verify=False):
         end_sector = self.get_cpu_parm("flash_sector_count",
             len(self.get_cpu_parm("flash_sector"))) - 1
 
-        self.erase_sectors(0, end_sector)
+        self.erase_sectors(0, end_sector, verify)
 
 
     def prog_image(self, image, flash_addr_base=0,
-            erase_all = False):
+            erase_all=False, verify=False):
 
         # the base address of the ram block to be written to flash
         ram_addr = self.get_cpu_parm("flash_prog_buffer_base",
@@ -933,9 +938,9 @@ class nxpprog:
         log("padding with %d bytes" % pad_count)
 
         if erase_all:
-            self.erase_all()
+            self.erase_all(verify)
         else:
-            self.erase_flash(flash_addr_base, flash_addr_base + image_len - 1)
+            self.erase_flash(flash_addr_base, flash_addr_base + image_len - 1, verify)
 
         for image_index in range(0, image_len, ram_block):
             a_ram_block = image_len - image_index
@@ -960,10 +965,11 @@ class nxpprog:
             self.isp_command("C %d %d %d" %
                     (flash_addr_start, ram_addr, a_ram_block))
 
-            # compare ram and flash
-            if flash_addr_start != 0:
-                self.isp_command("M %d %d %d" %
-                        (flash_addr_start, ram_addr, a_ram_block))
+            # optionally compare ram and flash
+            if verify:
+                if flash_addr_start != 0:
+                    self.isp_command("M %d %d %d" %
+                            (flash_addr_start, ram_addr, a_ram_block))
 
 
     def verify_image(self, flash_addr_base, image):
@@ -1132,7 +1138,7 @@ def main(argv=None):
     prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control, (device, port, mac) if udp else None)
 
     if erase_only:
-        prog.erase_all()
+        prog.erase_all(verify)
     elif start:
         prog.start(startaddr)
     elif select_bank:
@@ -1162,7 +1168,7 @@ def main(argv=None):
             image = open(filename, "rb").read()
 
         if not verify_only:
-            prog.prog_image(image, flash_addr_base, erase_all)
+            prog.prog_image(image, flash_addr_base, erase_all, verify)
 
         if verify:
             prog.verify_image(flash_addr_base, image)
