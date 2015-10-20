@@ -407,9 +407,9 @@ def syntax():
 {0} <serial device> <image_file> : program image file to processor.
 {0} --udp <ip address> <image_file> : program processor using Ethernet.
 {0} --start=<addr> <serial device> : start the device at <addr>.
-{0} --read=<file> --addr=<address> --len=<length>:
+{0} --read=<file> --addr=<address> --len=<length> <serial device>:
             read length bytes from address and dump them to a file.
-{0} --serialnumber : get the device serial number
+{0} --serialnumber <serial device> : get the device serial number
 {0} --list : list supported processors.
 options:
     --cpu=<cpu> : set the cpu type.
@@ -422,6 +422,7 @@ options:
     --verifyonly : don't program, just verify.
     --eraseonly : don't program, just erase. Implies --eraseall.
     --eraseall : erase all flash not just the area written to.
+    --blackcheck : don't program, just check that the flash is blank.
     --filetype=[ihex|bin] : set filetype to intel hex format or raw binary.
     --bank=[0|1] : select bank for devices with flash banks.
     --port=<udp port> : UDP port number to use (default 41825).
@@ -611,10 +612,14 @@ class nxpprog:
         self.device.write(data)
 
     def dev_writeln(self, data):
-        self.device.write(bytes((data + b'\r\n').encode('UTF-8')))
+        data = (data + b'\r\n').encode('UTF-8')
+        # print('> ' + data)
+        self.device.write(data)
 
     def dev_readline(self, timeout=None):
-        return self.device.readline(timeout)
+        data = self.device.readline(timeout)
+        # print('< ' + data)
+        return data
 
     def errexit(self, str, status):
         if not status:
@@ -657,6 +662,8 @@ class nxpprog:
 
         status = self.dev_readline()
         self.errexit("'%s' error" % cmd, status)
+
+        return status
 
 
     def sync(self, osc):
@@ -903,19 +910,31 @@ class nxpprog:
             self.isp_command("E %d %d" % (start_sector, end_sector))
 
         if verify:
+            log("blank checking sectors %d-%d" % (start_sector, end_sector))
             self.blank_check_sectors(start_sector, end_sector)
 
 
     def blank_check_sectors(self, start_sector, end_sector):
+        global panic
+        old_panic = panic
+        panic = log
         for i in range(start_sector, end_sector+1):
-            if i != 0:
-                if self.sector_commands_need_bank:
-                    self.isp_command("I %d %d 0" % (i, i))
-                else:
-                    self.isp_command("I %d %d" % (i, i))
+            if self.sector_commands_need_bank:
+                cmd = ("I %d %d 0" % (i, i))
+            else:
+                cmd = ("I %d %d" % (i, i))
+            result = self.isp_command(cmd)
+            if result == str(CMD_SUCCESS):
+                pass
+            elif result == str(SECTOR_NOT_BLANK):
+                self.dev_readline() # offset
+                self.dev_readline() # content
+            else:
+                self.errexit("'%s' error" % cmd, status)
+        panic = old_panic
 
 
-    def erase_flash(self, start_addr, end_addr, verify=False):
+    def erase_flash_range(self, start_addr, end_addr, verify=False):
         start_sector = self.find_flash_sector(start_addr)
         end_sector = self.find_flash_sector(end_addr)
 
@@ -940,6 +959,13 @@ class nxpprog:
             len(self.get_cpu_parm("flash_sector"))) - 1
 
         self.erase_sectors(0, end_sector, verify)
+
+
+    def blank_check_all(self):
+        end_sector = self.get_cpu_parm("flash_sector_count",
+            len(self.get_cpu_parm("flash_sector"))) - 1
+
+        self.blank_check_sectors(0, end_sector)
 
 
     def prog_image(self, image, flash_addr_base=0,
@@ -974,7 +1000,7 @@ class nxpprog:
         if erase_all:
             self.erase_all(verify)
         else:
-            self.erase_flash(flash_addr_base, flash_addr_base + image_len - 1, verify)
+            self.erase_flash_range(flash_addr_base, flash_addr_base + image_len - 1, verify)
 
         for image_index in range(0, image_len, ram_block):
             a_ram_block = image_len - image_index
@@ -1074,6 +1100,7 @@ def main(argv=None):
     erase_only = False
     verify = False
     verify_only = False
+    blank_check = False
     xonxoff = False
     start = False
     control = False
@@ -1089,7 +1116,7 @@ def main(argv=None):
     optlist, args = getopt.getopt(argv[1:], '',
             ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
                 'filetype=', 'bank=', 'read=', 'len=', 'serialnumber',
-                'udp', 'port=', 'mac=', 'verify', 'verifyonly',
+                'udp', 'port=', 'mac=', 'verify', 'verifyonly', 'blankcheck',
                 'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
 
     for o, a in optlist:
@@ -1117,6 +1144,9 @@ def main(argv=None):
         elif o == "--verifyonly":
             verify = True
             verify_only = True
+        elif o == "--blankcheck":
+            verify = True
+            blank_check = True
         elif o == "--control":
             control = True
         elif o == "--filetype":
@@ -1173,6 +1203,8 @@ def main(argv=None):
 
     if erase_only:
         prog.erase_all(verify)
+    elif blank_check:
+        prog.blank_check_all()
     elif start:
         prog.start(startaddr)
     elif select_bank:
