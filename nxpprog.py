@@ -34,6 +34,27 @@ import time
 
 import ihex
 
+CMD_SUCCESS = 0
+INVALID_COMMAND = 1
+SRC_ADDR_ERROR = 2
+DST_ADDR_ERROR = 3
+SRC_ADDR_NOT_MAPPED = 4
+DST_ADDR_NOT_MAPPED = 5
+COUNT_ERROR = 6
+INVALID_SECTOR = 7
+SECTOR_NOT_BLANK = 8
+SECTOR_NOT_PREPARED_FOR_WRITE_OPERATION = 9
+COMPARE_ERROR = 10
+BUSY = 11
+PARAM_ERROR = 12
+ADDR_ERROR = 13
+ADDR_NOT_MAPPED = 14
+CMD_LOCKED = 15
+INVALID_CODE = 16
+INVALID_BAUD_RATE = 17
+INVALID_STOP_BIT = 18
+CODE_READ_PROTECTION_ENABLED = 19
+
 # flash sector sizes for lpc23xx/lpc24xx/lpc214x processors
 flash_sector_lpc23xx = (
                         4, 4, 4, 4, 4, 4, 4, 4,
@@ -409,7 +430,6 @@ options:
 
 class SerialDevice(object):
     def __init__(self, device, baud, xonxoff=False, control=False):
-        self.echo_on = True
         self._serial = serial.Serial(device, baud)
 
         # set a two second timeout just in case there is nothing connected
@@ -487,7 +507,6 @@ class SerialDevice(object):
 
 class UdpDevice(object):
     def __init__(self, address):
-        self.echo_on = False
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.settimeout(5)
         self._inet_addr = address[0]
@@ -530,6 +549,7 @@ class UdpDevice(object):
 
 class nxpprog:
     def __init__(self, cpu, device, baud, osc_freq, xonxoff=False, control=False, address=None):
+        self.echo_on = True
         self.OK = 'OK'
         self.RESEND = 'RESEND'
         self.sync_str = 'Synchronized'
@@ -546,8 +566,6 @@ class nxpprog:
             self.device = UdpDevice(address)
         else:
             self.device = SerialDevice(device, baud, xonxoff, control)
-
-        self.echo_on = self.device.echo_on
 
         self.cpu = cpu
 
@@ -650,34 +668,50 @@ class nxpprog:
             panic("no sync string")
 
         self.dev_writeln(self.sync_str)
-        # recieve our echoed data
-        if self.echo_on:
-            s = self.dev_readline()
-            if s != self.sync_str:
-                panic("no sync string")
-
         s = self.dev_readline()
+
+        # detect echo state
+        if s == self.sync_str:
+            self.echo_on = True
+            s = self.dev_readline()
+        elif s == self.OK:
+            self.echo_on = False
+        else:
+            panic("no sync string")
+
         if s != self.OK:
             panic("not ok")
 
-        if isinstance(self.device, SerialDevice):
-            self.dev_writeln('%d' % osc)
-            # discard echo
-            if self.echo_on:
-                s = self.dev_readline()
+        # set the oscillator frequency
+        self.dev_writeln('%d' % osc)
+        if self.echo_on:
             s = self.dev_readline()
-            if s != self.OK:
+            if s != ('%d' % osc):
+                panic('invalid echo')
+
+        s = self.dev_readline()
+        if s != self.OK:
+            if s == str(INVALID_COMMAND):
+                pass
+            else:
+                self.errexit("'%d' osc not ok" % osc, s)
                 panic("osc not ok")
 
-            self.dev_writeln('A 0')
-            # discard echo
-            if self.echo_on:
-                s = self.dev_readline()
+        # disable echo
+        self.dev_writeln('A 0')
+        if self.echo_on:
             s = self.dev_readline()
-            if int(s):
-                panic("echo disable failed")
+            if s != 'A 0':
+                panic('invalid echo')
 
-        self.echo_on = False
+        s = self.dev_readline()
+        if s == str(CMD_SUCCESS):
+            self.echo_on = False
+        elif s == str(INVALID_COMMAND):
+            pass
+        else:
+            self.errexit("'A 0' echo disable failed", s)
+            panic("echo disable failed")
 
 
     def sum(self, data):
