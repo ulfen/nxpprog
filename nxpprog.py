@@ -612,7 +612,7 @@ class nxpprog:
         self.device.write(data)
 
     def dev_writeln(self, data):
-        data = (data + b'\r\n').encode('UTF-8')
+        data = data.encode('UTF-8') + b'\r\n'
         # print('> ' + data)
         self.device.write(data)
 
