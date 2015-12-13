@@ -504,7 +504,7 @@ class SerialDevice(object):
         if timeout:
             self._serial.setTimeout(ot)
 
-        return line.decode("UTF-8")
+        return line.decode("UTF-8", "ignore")
 
 class UdpDevice(object):
     def __init__(self, address):
@@ -546,7 +546,7 @@ class UdpDevice(object):
         if timeout:
             self._sock.settimeout(ot)
 
-        return line.decode("UTF-8").replace('\r','').replace('\n','')
+        return line.decode("UTF-8", "ignore").replace('\r','').replace('\n','')
 
 class nxpprog:
     def __init__(self, cpu, device, baud, osc_freq, xonxoff=False, control=False, address=None):
