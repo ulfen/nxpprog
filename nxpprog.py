@@ -656,15 +656,20 @@ class nxpprog:
 
 
     def isp_command(self, cmd):
-        self.dev_writeln(cmd)
+        retry = 3
+        while retry > 0:
+            retry -= 1
+            self.dev_writeln(cmd)
 
-        # throw away echo data
-        if self.echo_on:
-            echo = self.dev_readline()
-            if self.verify and echo != cmd:
-                log('Invalid echo')
+            # throw away echo data
+            if self.echo_on:
+                echo = self.dev_readline()
+                if self.verify and echo != cmd:
+                    log('Invalid echo')
 
-        status = self.dev_readline()
+            status = self.dev_readline()
+            if status:
+                break
         self.errexit("'%s' error" % cmd, status)
 
         return status
