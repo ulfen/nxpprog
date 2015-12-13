@@ -422,7 +422,7 @@ options:
     --verifyonly : don't program, just verify.
     --eraseonly : don't program, just erase. Implies --eraseall.
     --eraseall : erase all flash not just the area written to.
-    --blackcheck : don't program, just check that the flash is blank.
+    --blankcheck : don't program, just check that the flash is blank.
     --filetype=[ihex|bin] : set filetype to intel hex format or raw binary.
     --bank=[0|1] : select bank for devices with flash banks.
     --port=<udp port> : UDP port number to use (default 41825).
