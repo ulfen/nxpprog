@@ -1046,14 +1046,52 @@ class nxpprog:
 
 
     def verify_image(self, flash_addr_base, image):
-        log("reading %d bytes from 0x%x" % (len(image), flash_addr_base))
-        data = self.read_block(flash_addr_base, len(image))
+        global panic
+        success = True
 
-        if len(data) != len(image):
-            panic("Verify failed! lengths differ")
-        for (i, (x, y)) in enumerate(zip(data, image)):
-            if (flash_addr_base + i) > 512 and x != y:
-                panic("Verify failed! content differ at location 0x%x" % (flash_addr_base + i))
+        image_length = len(image)
+        start_addr = flash_addr_base
+        end_addr = flash_addr_base + image_length
+
+        start_sector = self.find_flash_sector(start_addr)
+        end_sector = self.find_flash_sector(end_addr)
+
+        table = self.get_cpu_parm("flash_sector")
+        flash_base_addr = self.get_cpu_parm("flash_bank_addr", 0)
+        if flash_base_addr == 0:
+            faddr = 0
+        else:
+            faddr = flash_base_addr[0] # fix to have a current flash bank
+
+        index = 0
+        sector = start_sector
+        while sector <= end_sector:
+            start_of_sector = faddr + 1024 * sum(table[:sector])
+            end_of_sector = faddr + 1024 * sum(table[:sector+1])
+
+            start = start_addr if start_of_sector < start_addr else start_of_sector
+            end = end_addr if end_of_sector > end_addr else end_of_sector
+            length = 4 * ((end - start) // 4)
+
+            log("Verify sector %i: Reading %d bytes from 0x%x" % (sector, length, start))
+            data = self.read_block(start, length)
+
+            if len(data) != length:
+                panic("Verify failed! lengths differ")
+
+            for (i, (x, y)) in enumerate(zip(data, image[index:index+(end-start)])):
+                if x != y:
+                    old_panic = panic
+                    panic = log
+                    panic("Verify failed! content differ at location 0x%x" % (faddr + i))
+                    panic = old_panic
+                    success = False
+                    break
+
+            index = index + length
+            sector = sector + 1
+
+        return success
 
 
     def start(self, addr=0):
