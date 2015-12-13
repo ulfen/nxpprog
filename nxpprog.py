@@ -991,6 +991,7 @@ class nxpprog:
     def prog_image(self, image, flash_addr_base=0,
             erase_all=False, verify=False):
         global panic
+        success = True
 
         # the base address of the ram block to be written to flash
         ram_addr = self.get_cpu_parm("flash_prog_buffer_base",
@@ -1057,8 +1058,11 @@ class nxpprog:
                     pass
                 elif result == str(COMPARE_ERROR):
                     self.dev_readline() # offset
+                    success = False
                 else:
                     self.errexit("'%s' error" % cmd, status)
+
+        return success
 
 
     def verify_image(self, flash_addr_base, image):
@@ -1302,17 +1306,17 @@ def main(argv=None):
 
         if not verify_only:
             start = time.time()
-            prog.prog_image(image, flash_addr_base, erase_all, verify)
+            success = prog.prog_image(image, flash_addr_base, erase_all, verify)
             stop = time.time()
             elapsed = stop - start
-            log("Programmed in %.1f seconds" % elapsed)
+            log("Programmed %s in %.1f seconds" % ("successfully" if success else "with errors", elapsed))
 
         if verify:
             start = time.time()
-            prog.verify_image(flash_addr_base, image)
+            success = prog.verify_image(flash_addr_base, image)
             stop = time.time()
             elapsed = stop - start
-            log("Verified in %.1f seconds" % elapsed)
+            log("Verified %s in %.1f seconds" % ("successfully" if success else "with errors", elapsed))
 
         if not verify_only:
             prog.start(flash_addr_base)
