@@ -382,6 +382,7 @@ cpu_parms = {
 
 def log(str):
     sys.stderr.write("%s\n" % str)
+    sys.stderr.flush()
 
 
 def dump(name, str):
