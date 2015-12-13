@@ -744,8 +744,6 @@ class nxpprog:
     def write_ram_block(self, addr, data):
         data_len = len(data)
 
-        self.isp_command("W %d %d" % ( addr, data_len ))
-
         for i in range(0, data_len, self.uu_line_size):
             c_line_size = data_len - i
             if c_line_size > self.uu_line_size:
@@ -843,9 +841,18 @@ class nxpprog:
             if a_block_size > self.uu_block_size:
                 a_block_size = self.uu_block_size
 
-            err = self.write_ram_block(addr, data[i : i + a_block_size])
-            if err:
-                panic("write error: %s" % err)
+            self.isp_command("W %d %d" % ( addr, a_block_size ))
+
+            retry = 3
+            while retry > 0:
+                retry -= 1
+                err = self.write_ram_block(addr, data[i : i + a_block_size])
+                if not err:
+                    break
+                elif err != "resend":
+                    panic("write error: %s" % err)
+                else:
+                    log("resending")
 
             addr += a_block_size
 
