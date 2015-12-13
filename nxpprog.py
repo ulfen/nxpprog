@@ -550,8 +550,9 @@ class UdpDevice(object):
         return line.decode("UTF-8", "ignore").replace('\r','').replace('\n','')
 
 class nxpprog:
-    def __init__(self, cpu, device, baud, osc_freq, xonxoff=False, control=False, address=None):
+    def __init__(self, cpu, device, baud, osc_freq, xonxoff=False, control=False, address=None, verify=False):
         self.echo_on = True
+        self.verify = verify
         self.OK = 'OK'
         self.RESEND = 'RESEND'
         self.sync_str = 'Synchronized'
@@ -659,7 +660,9 @@ class nxpprog:
 
         # throw away echo data
         if self.echo_on:
-            self.dev_readline()
+            echo = self.dev_readline()
+            if self.verify and echo != cmd:
+                log('Invalid echo')
 
         status = self.dev_readline()
         self.errexit("'%s' error" % cmd, status)
@@ -1200,7 +1203,7 @@ def main(argv=None):
     else:
         log("cpu=%s oscfreq=%d baud=%d" % (cpu, osc_freq, baud))
 
-    prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control, (device, port, mac) if udp else None)
+    prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control, (device, port, mac) if udp else None, verify)
 
     if erase_only:
         prog.erase_all(verify)
