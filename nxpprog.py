@@ -594,12 +594,12 @@ class nxpprog:
                 # mask devid word1
                 devid_word1_mask = cpu_parms[dcpu].get("devid_word1_mask")
                 if devid_word1_mask and isinstance(devid, tuple) and devid[0] == cpu_devid[0] and (devid[1] & devid_word1_mask) == (cpu_devid[1] & devid_word1_mask):
-                    log("detected %s" % dcpu)
+                    log("Detected %s" % dcpu)
                     self.cpu = dcpu
                     break
 
                 if devid == cpu_devid:
-                    log("detected %s" % dcpu)
+                    log("Detected %s" % dcpu)
                     self.cpu = dcpu
                     break
             if self.cpu == "autodetect":
@@ -679,9 +679,9 @@ class nxpprog:
         self.dev_write(b'?')
         s = self.dev_readline()
         if not s:
-            panic("sync timeout")
+            panic("Sync timeout")
         if s != self.sync_str:
-            panic("no sync string")
+            panic("No sync string")
 
         self.dev_writeln(self.sync_str)
         s = self.dev_readline()
@@ -693,17 +693,17 @@ class nxpprog:
         elif s == self.OK:
             self.echo_on = False
         else:
-            panic("no sync string")
+            panic("No sync string")
 
         if s != self.OK:
-            panic("not ok")
+            panic("Not ok")
 
         # set the oscillator frequency
         self.dev_writeln('%d' % osc)
         if self.echo_on:
             s = self.dev_readline()
             if s != ('%d' % osc):
-                panic('invalid echo')
+                panic('Invalid echo')
 
         s = self.dev_readline()
         if s != self.OK:
@@ -711,14 +711,14 @@ class nxpprog:
                 pass
             else:
                 self.errexit("'%d' osc not ok" % osc, s)
-                panic("osc not ok")
+                panic("Osc not ok")
 
         # disable echo
         self.dev_writeln('A 0')
         if self.echo_on:
             s = self.dev_readline()
             if s != 'A 0':
-                panic('invalid echo')
+                panic('Invalid echo')
 
         s = self.dev_readline()
         if s == str(CMD_SUCCESS):
@@ -727,7 +727,7 @@ class nxpprog:
             pass
         else:
             self.errexit("'A 0' echo disable failed", s)
-            panic("echo disable failed")
+            panic("Echo disable failed")
 
 
     def sum(self, data):
@@ -776,7 +776,7 @@ class nxpprog:
         uu_linelen = (linelen + 3 - 1) / 3 * 4
 
         if uu_linelen + 1 != len(line):
-            panic("error in line length")
+            panic("Error in line length")
 
         # pure python implementation - if this was C we would
         # use bitshift operations here
@@ -819,7 +819,7 @@ class nxpprog:
             s = self.dev_readline()
 
             if int(s) != self.sum(cdata):
-                panic("checksum mismatch on read got 0x%x expected 0x%x" % (int(s), self.sum(data)))
+                panic("Checksum mismatch on read got 0x%x expected 0x%x" % (int(s), self.sum(data)))
             else:
                 self.dev_writeln(self.OK)
 
@@ -850,9 +850,9 @@ class nxpprog:
                 if not err:
                     break
                 elif err != "resend":
-                    panic("write error: %s" % err)
+                    panic("Write error: %s" % err)
                 else:
-                    log("resending")
+                    log("Resending")
 
             addr += a_block_size
 
@@ -898,7 +898,7 @@ class nxpprog:
         csum %= self.U32_MOD
         csum = self.U32_MOD - csum
 
-        log("inserting intvec checksum %08x in image at offset %d" %
+        log("Inserting intvec checksum 0x%08x in image at offset %d" %
                 (csum, valid_image_csum_vec))
 
         intvecs_list[valid_image_csum_vec] = csum
@@ -922,7 +922,7 @@ class nxpprog:
     def erase_sectors(self, start_sector, end_sector, verify=False):
         self.prepare_flash_sectors(start_sector, end_sector)
 
-        log("erasing flash sectors %d-%d" % (start_sector, end_sector))
+        log("Erasing flash sectors %d-%d" % (start_sector, end_sector))
 
         if self.sector_commands_need_bank:
             self.isp_command("E %d %d 0" % (start_sector, end_sector))
@@ -930,7 +930,7 @@ class nxpprog:
             self.isp_command("E %d %d" % (start_sector, end_sector))
 
         if verify:
-            log("blank checking sectors %d-%d" % (start_sector, end_sector))
+            log("Blank checking sectors %d-%d" % (start_sector, end_sector))
             self.blank_check_sectors(start_sector, end_sector)
 
 
@@ -964,14 +964,14 @@ class nxpprog:
     def get_cpu_parm(self, key, default=None):
         ccpu_parms = cpu_parms.get(self.cpu)
         if not ccpu_parms:
-            panic("no parameters defined for cpu %s" % self.cpu)
+            panic("No parameters defined for cpu %s" % self.cpu)
         parm = ccpu_parms.get(key)
         if parm:
             return parm
         if default is not None:
             return default
         else:
-            panic("no value for required cpu parameter %s" % key)
+            panic("No value for required cpu parameter %s" % key)
 
 
     def erase_all(self, verify=False):
@@ -1017,7 +1017,7 @@ class nxpprog:
             image += self.bytestr(0xff, pad_count)
             image_len += pad_count
 
-        log("padding with %d bytes" % pad_count)
+        log("Padding with %d bytes" % pad_count)
 
         if erase_all:
             self.erase_all(verify)
@@ -1032,7 +1032,7 @@ class nxpprog:
             flash_addr_start = image_index + flash_addr_base
             flash_addr_end = flash_addr_start + a_ram_block - 1
 
-            log("writing %d bytes to 0x%x" % (a_ram_block, flash_addr_start))
+            log("Writing %d bytes to 0x%x" % (a_ram_block, flash_addr_start))
 
             self.write_ram_data(ram_addr,
                     image[image_index: image_index + a_ram_block])
@@ -1122,7 +1122,7 @@ class nxpprog:
         elif mode == "thumb":
             m = "T"
         else:
-            panic("invalid mode to start")
+            panic("Invalid mode to start")
 
         self.isp_command("G %d %s" % (addr, m))
 
@@ -1223,7 +1223,7 @@ def main(argv=None):
         elif o == "--filetype":
             filetype = a
             if not ( filetype == "bin" or filetype == "ihex" ):
-                panic("invalid filetype: %s" % filetype)
+                panic("Invalid filetype: %s" % filetype)
         elif o == "--start":
             start = True
             if a:
@@ -1247,10 +1247,10 @@ def main(argv=None):
         elif o == "--mac":
             mac = a
         else:
-            panic("unhandled option: %s" % o)
+            panic("Unhandled option: %s" % o)
 
     if cpu != "autodetect" and not cpu_parms.has_key(cpu):
-        panic("unsupported cpu %s" % cpu)
+        panic("Unsupported cpu %s" % cpu)
 
     if len(args) == 0:
         syntax()
@@ -1301,7 +1301,7 @@ def main(argv=None):
         sys.stdout.write(sn)
     elif read:
         if not readlen:
-            panic("read length is 0")
+            panic("Read length is 0")
         fd = open(readfile, "w")
         prog.read_block(flash_addr_base, readlen, fd)
         fd.close()
