@@ -1285,10 +1285,18 @@ def main(argv=None):
             image = open(filename, "rb").read()
 
         if not verify_only:
+            start = time.time()
             prog.prog_image(image, flash_addr_base, erase_all, verify)
+            stop = time.time()
+            elapsed = stop - start
+            log("Programmed in %.1f seconds" % elapsed)
 
         if verify:
+            start = time.time()
             prog.verify_image(flash_addr_base, image)
+            stop = time.time()
+            elapsed = stop - start
+            log("Verified in %.1f seconds" % elapsed)
 
         if not verify_only:
             prog.start(flash_addr_base)
