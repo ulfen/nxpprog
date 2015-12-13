@@ -754,9 +754,13 @@ class nxpprog:
             bstr = binascii.b2a_uu(block)
             self.dev_write(bstr)
 
-
-        self.dev_writeln('%s' % self.sum(data))
-        status = self.dev_readline()
+        retry = 3
+        while retry > 0:
+            retry -= 1
+            self.dev_writeln('%s' % self.sum(data))
+            status = self.dev_readline()
+            if status:
+                break
         if not status:
             return "timeout"
         if status == self.RESEND:
