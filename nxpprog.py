@@ -974,6 +974,7 @@ class nxpprog:
 
     def prog_image(self, image, flash_addr_base=0,
             erase_all=False, verify=False):
+        global panic
 
         # the base address of the ram block to be written to flash
         ram_addr = self.get_cpu_parm("flash_prog_buffer_base",
@@ -1031,9 +1032,17 @@ class nxpprog:
 
             # optionally compare ram and flash
             if verify:
-                if flash_addr_start != 0:
-                    self.isp_command("M %d %d %d" %
-                            (flash_addr_start, ram_addr, a_ram_block))
+                old_panic = panic
+                panic = log
+                result = self.isp_command("M %d %d %d" %
+                                          (flash_addr_start, ram_addr, a_ram_block))
+                panic = old_panic
+                if result == str(CMD_SUCCESS):
+                    pass
+                elif result == str(COMPARE_ERROR):
+                    self.dev_readline() # offset
+                else:
+                    self.errexit("'%s' error" % cmd, status)
 
 
     def verify_image(self, flash_addr_base, image):
