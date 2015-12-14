@@ -1066,7 +1066,6 @@ class nxpprog:
 
 
     def verify_image(self, flash_addr_base, image):
-        global panic
         success = True
 
         image_length = len(image)
@@ -1101,10 +1100,7 @@ class nxpprog:
 
             for (i, (x, y)) in enumerate(zip(data, image[index:index+(end-start)])):
                 if x != y:
-                    old_panic = panic
-                    panic = log
-                    panic("Verify failed! content differ at location 0x%x" % (faddr + i))
-                    panic = old_panic
+                    log("Verify failed! content differ at location 0x%x" % (faddr + i))
                     success = False
                     break
 
