@@ -432,7 +432,16 @@ options:
 
 class SerialDevice(object):
     def __init__(self, device, baud, xonxoff=False, control=False):
-        self._serial = serial.Serial(device, baud)
+        # Create the Serial object without port to avoid automatic opening
+        self._serial = serial.Serial(port=None, baudrate=baud)
+
+        # Disable RTS and DRT to avoid automatic reset to ISP mode (use --control for explicit reset)
+        self._serial.setRTS(0)
+        self._serial.setDTR(0)
+
+        # Select and open the port after RTS and DTR are set to zero
+        self._serial.setPort(device)
+        self._serial.open()
 
         # set a two second timeout just in case there is nothing connected
         # or the device is in the wrong mode.
