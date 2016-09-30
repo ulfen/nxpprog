@@ -542,7 +542,7 @@ class UdpDevice(object):
         try:
             line, addr = self._sock.recvfrom(1024)
         except Exception as e:
-            line = ""
+            line = b""
 
         if timeout:
             self._sock.settimeout(ot)
@@ -773,7 +773,7 @@ class nxpprog:
         # uu encoded data has an encoded length first
         linelen = ord(line[0]) - 32
 
-        uu_linelen = (linelen + 3 - 1) / 3 * 4
+        uu_linelen = (linelen + 3 - 1) // 3 * 4
 
         if uu_linelen + 1 != len(line):
             panic("Error in line length")
@@ -790,7 +790,7 @@ class nxpprog:
             s = []
             for j in range(0, 3):
                 s.append(c % 256)
-                c /= 256
+                c = c // 256
             for j in reversed(s):
                 decoded = decoded + chr(j)
 
@@ -801,7 +801,7 @@ class nxpprog:
     def read_block(self, addr, data_len, fd=None):
         self.isp_command("R %d %d" % ( addr, data_len ))
 
-        expected_lines = (data_len + self.uu_line_size - 1)/self.uu_line_size
+        expected_lines = (data_len + self.uu_line_size - 1) // self.uu_line_size
 
         data = ""
         for i in range(0, expected_lines, 20):
@@ -1094,6 +1094,8 @@ class nxpprog:
 
             log("Verify sector %i: Reading %d bytes from 0x%x" % (sector, length, start))
             data = self.read_block(start, length)
+            if isinstance(image[0], int):
+                data = [ord(x) for x in data]
 
             if len(data) != length:
                 panic("Verify failed! lengths differ")
@@ -1189,7 +1191,7 @@ def main(argv=None):
     for o, a in optlist:
         if o == "--list":
             log("Supported cpus:")
-            for val in cpu_parms.keys():
+            for val in sorted(cpu_parms.keys()):
                 log(" %s" % val)
             sys.exit(0)
         if o == "--cpu":
