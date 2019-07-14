@@ -89,6 +89,14 @@ flash_sector_lpc17xx = (
                         32, 32, 32, 32, 32, 32, 32,
                        )
 
+# flash sector sizes for lpc40xx processors
+flash_sector_lpc40xx = (
+                        4, 4, 4, 4, 4, 4, 4, 4,
+                        4, 4, 4, 4, 4, 4, 4, 4,
+                        32, 32, 32, 32, 32, 32, 32,
+                        32, 32, 32, 32, 32, 32, 32,
+                       )
+
 # flash sector sizes for lpc11xx processors
 flash_sector_lpc11xx = (
         4, 4, 4, 4, 4, 4, 4, 4,
@@ -320,6 +328,13 @@ cpu_parms = {
             "devid": 0x25001110,
             "cpu_type": "thumb",
         },
+        "lpc4078" : {
+            "flash_sector" : flash_sector_lpc40xx,
+            "flash_prog_buffer_base" : 0x10001000,
+            "csum_vec": 7,
+            "devid": 0x47193F47,
+            "cpu_type": "thumb",
+        },
         "lpc1114" : {
             "flash_sector" : flash_sector_lpc11xx,
             "flash_prog_buffer_base" : 0x10000400,
@@ -436,21 +451,21 @@ class SerialDevice(object):
         self._serial = serial.Serial(port=None, baudrate=baud)
 
         # Disable RTS and DRT to avoid automatic reset to ISP mode (use --control for explicit reset)
-        self._serial.setRTS(0)
-        self._serial.setDTR(0)
+        self._serial.rts = 0
+        self._serial.dtr = 0
 
         # Select and open the port after RTS and DTR are set to zero
-        self._serial.setPort(device)
+        self._serial.port = device
         self._serial.open()
 
         # set a two second timeout just in case there is nothing connected
         # or the device is in the wrong mode.
         # This timeout is too short for slow baud rates but who wants to
         # use them?
-        self._serial.setTimeout(5)
+        self._serial.timeout = 5
         # device wants Xon Xoff flow control
         if xonxoff:
-            self._serial.setXonXoff(1)
+            self._serial.xonxoff = 1
 
         # reset pin is controlled by DTR implying int0 is controlled by RTS
         self.reset_pin = "dtr"
@@ -475,24 +490,24 @@ class SerialDevice(object):
 
     def reset(self, level):
         if self.reset_pin == "rts":
-            self._serial.setRTS(level)
+            self._serial.rts = level
         else:
-            self._serial.setDTR(level)
+            self._serial.dtr = level
 
     def int0(self, level):
         # if reset pin is rts int0 pin is dtr
         if self.reset_pin == "rts":
-            self._serial.setDTR(level)
+            self._serial.dtr = level
         else:
-            self._serial.setRTS(level)
+            self._serial.rts = level
 
     def write(self, data):
         self._serial.write(data)
 
     def readline(self, timeout=None):
         if timeout:
-            ot = self._serial.getTimeout()
-            self._serial.setTimeout(timeout)
+            ot = self._serial.timeout
+            self._serial.timeout = timeout
 
         line = b''
         while True:
@@ -512,14 +527,14 @@ class SerialDevice(object):
             line += c
 
         if timeout:
-            self._serial.setTimeout(ot)
+            self._serial.timeout = ot
 
         return line.decode("UTF-8", "ignore")
 
 class UdpDevice(object):
     def __init__(self, address):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._sock.settimeout(5)
+        self._sock.timeout = 5
         self._inet_addr = address[0]
         self._udp_port = address[1]
         self._eth_addr = address[2]
@@ -545,8 +560,8 @@ class UdpDevice(object):
 
     def readline(self, timeout=None):
         if timeout:
-            ot = self._sock.gettimeout()
-            self._sock.settimeout(timeout)
+            ot = self._sock.timeout
+            self._sock.timeout = timeout
 
         try:
             line, addr = self._sock.recvfrom(1024)
@@ -554,7 +569,7 @@ class UdpDevice(object):
             line = b""
 
         if timeout:
-            self._sock.settimeout(ot)
+            self._sock.timeout = ot
 
         return line.decode("UTF-8", "ignore").replace('\r','').replace('\n','')
 
@@ -689,6 +704,7 @@ class nxpprog:
         s = self.dev_readline()
         if not s:
             panic("Sync timeout")
+        print("initial sync =", s)
         if s != self.sync_str:
             panic("No sync string")
 
@@ -702,6 +718,7 @@ class nxpprog:
         elif s == self.OK:
             self.echo_on = False
         else:
+            print("echo sync =", s)
             panic("No sync string")
 
         if s != self.OK:
@@ -1256,7 +1273,7 @@ def main(argv=None):
         else:
             panic("Unhandled option: %s" % o)
 
-    if cpu != "autodetect" and not cpu_parms.has_key(cpu):
+    if cpu != "autodetect" and not cpu in cpu_parms:
         panic("Unsupported cpu %s" % cpu)
 
     if len(args) == 0:
