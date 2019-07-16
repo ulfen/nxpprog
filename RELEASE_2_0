@@ -1,4 +1,0 @@
-This is a major update.
-The scripts are converted to python 3, python 2 is no longer supported.
-Support has been added for NXP 18XX cortex M3 based SOCs.
-Checksum calculation for the cortex based processors has been fixed.

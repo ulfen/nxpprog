@@ -29,6 +29,7 @@ import sys
 import struct
 import getopt
 import serial # pyserial
+import signal
 import socket
 import time
 
@@ -394,6 +395,8 @@ cpu_parms = {
         },
 }
 
+prog = None
+
 
 def log(str):
     sys.stderr.write("%s\n" % str)
@@ -414,6 +417,8 @@ def dump(name, str):
 
 def panic(str):
     log(str)
+    if prog:
+        prog.device.close()
     sys.exit(1)
 
 
@@ -531,6 +536,20 @@ class SerialDevice(object):
 
         return line.decode("UTF-8", "ignore")
 
+    def close(self):
+        if self._serial.is_open:
+          self._serial.flush()
+          self._serial.reset_input_buffer()
+          self._serial.reset_output_buffer()
+          # This is a workaround for a problem with serial terminals after the
+          # usage of pySerial where the vmin (or min) serial flag is set to 0.
+          # This causes chrome.serial and other serial port readers to throw an
+          # exception and lose control over the serial device.
+          self._serial.inter_byte_timeout = 1
+          self._serial._reconfigure_port(force_update=True)
+          self._serial.close()
+
+
 class UdpDevice(object):
     def __init__(self, address):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -572,6 +591,7 @@ class UdpDevice(object):
             self._sock.timeout = ot
 
         return line.decode("UTF-8", "ignore").replace('\r','').replace('\n','')
+
 
 class nxpprog:
     def __init__(self, cpu, device, baud, osc_freq, xonxoff=False, control=False, address=None, verify=False):
@@ -1183,6 +1203,7 @@ class nxpprog:
 
 
 def main(argv=None):
+    global prog
     if argv is None:
         argv = sys.argv
 
@@ -1361,8 +1382,16 @@ def main(argv=None):
         if not verify_only:
             prog.start(flash_addr_base)
 
+    prog.device.close()
+
+def signal_handler(sig, frame):
+    if prog:
+        prog.device.close()
+    print('Ctrl+C Pressed bailing out!')
+    sys.exit(0)
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal_handler)
     sys.exit(main())
 
 # EOF

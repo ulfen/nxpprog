@@ -1,5 +1,0 @@
-Minor update.
-
-Added better data for LPC 1817.
-The newer versions need to have the devid word 1
-masked as the higher bits are the flash size encoded.
