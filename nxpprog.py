@@ -29,6 +29,7 @@ import sys
 import struct
 import getopt
 import serial # pyserial
+import serial.tools.list_ports as port_list
 import signal
 import socket
 import time
@@ -398,6 +399,84 @@ cpu_parms = {
 prog = None
 
 
+LPC40XX_CHAR = {'Question': b'?',
+                'Synchronized': b'Synchronized\r\n',
+                'OK': b'OK\r\n'}
+
+
+def port_write_and_verify(port, payload, error_message="", debug_message=""):
+    bytes_sent = port.write(bytearray(payload))
+    if bytes_sent != len(payload):
+        log(error_message)
+        return False
+    else:
+        log(debug_message)
+        return True
+
+
+def port_read(port, number_of_bytes):
+    return bytearray(port.read(number_of_bytes))
+
+
+def attempt_sync(port):
+    log(f'Attempting to sync with device at {port.port}')
+    time.sleep(.100)
+    port.dtr = True
+    port.rts = True
+    time.sleep(.100)
+    port.dtr = False
+    time.sleep(.100)
+    port.rts = False
+    time.sleep(1)
+    port_write_and_verify(port, LPC40XX_CHAR['Question'])
+    time.sleep(.100)
+    response = port_read(port, 14)
+    time.sleep(.100)
+    log(f'device responded with {response}')
+
+
+    ## DOESN'T WORK
+    port_write_and_verify(port, LPC40XX_CHAR['Synchronized'])
+    time.sleep(.100)
+    response = port_read(port, 17)
+    port_write_and_verify(port, b'10000\r\n')
+    time.sleep(.100)
+    response = port_read(port, 4)
+    return response == LPC40XX_CHAR['Synchronized']
+
+
+def find_lpc_port(device=None):
+    log('Looking for ports with LPC40xx devices')
+    port = None
+    if device:
+        serial_device_list = [
+            {
+                "device": device
+            }
+        ]
+    else:
+        serial_device_list = list(port_list.comports())
+
+    for port_info in serial_device_list:
+        try:
+            port = serial.Serial(
+                port=port_info.device,
+                baudrate=115200,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                bytesize=serial.EIGHTBITS,
+                timeout=3)
+            sync_successful = attempt_sync(port)
+            if sync_successful:
+                port.close()
+                return port_info.device
+        except serial.SerialException:
+            log(f'excpetion on port {port}')
+            continue
+
+    return port
+
+
 def log(str):
     sys.stderr.write("%s\n" % str)
     sys.stderr.flush()
@@ -425,7 +504,8 @@ def panic(str):
 def syntax():
     panic(
 """\
-{0} <serial device> <image_file> : program image file to processor.
+{0} <image_file> : flash image to processor to port with LPC device.
+{0} <serial device> <image_file> : flash image to processor at specified port.
 {0} --udp <ip address> <image_file> : program processor using Ethernet.
 {0} --start=<addr> <serial device> : start the device at <addr>.
 {0} --read=<file> --addr=<address> --len=<length> <serial device>:
@@ -1210,6 +1290,7 @@ def main(argv=None):
     # defaults
     osc_freq = 16000 # kHz
     baud = 115200
+    device = None
     cpu = "autodetect"
     flash_addr_base = 0
     erase_all = False
@@ -1230,18 +1311,21 @@ def main(argv=None):
     mac = "" # "0C-1D-12-E0-1F-10"
 
     optlist, args = getopt.getopt(argv[1:], '',
-            ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
+            ['device=', 'cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
                 'filetype=', 'bank=', 'read=', 'len=', 'serialnumber',
                 'udp', 'port=', 'mac=', 'verify', 'verifyonly', 'blankcheck',
                 'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
 
     for o, a in optlist:
+        print(o)
         if o == "--list":
             log("Supported cpus:")
             for val in sorted(cpu_parms.keys()):
                 log(" %s" % val)
             sys.exit(0)
-        if o == "--cpu":
+        if o == "--device":
+            device = a
+        elif o == "--cpu":
             cpu = a
         elif o == "--xonxoff":
             xonxoff = True
@@ -1300,7 +1384,10 @@ def main(argv=None):
     if len(args) == 0:
         syntax()
 
-    device = args[0]
+    if device == None:
+        device = find_lpc_port()
+        if device == None:
+            panic("couldn't find lpc port")
 
     if udp:
         if '.' in device:
@@ -1351,7 +1438,7 @@ def main(argv=None):
         prog.read_block(flash_addr_base, readlen, fd)
         fd.close()
     else:
-        if len(args) != 2:
+        if len(args) != 1:
             syntax()
 
         filename = args[1]
