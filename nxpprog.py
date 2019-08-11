@@ -28,6 +28,7 @@ import os
 import sys
 import struct
 import getopt
+import logging
 import serial # pyserial
 import signal
 import socket
@@ -398,25 +399,20 @@ cpu_parms = {
 prog = None
 
 
-def log(str):
-    sys.stderr.write("%s\n" % str)
-    sys.stderr.flush()
-
-
 def dump(name, str):
-    sys.stderr.write("%s:\n" % name)
+    logging.info("%s:\n" % name)
     ct = 0
     for i in str:
-        sys.stderr.write("%x, " % ord(i))
+        logging.info("%x, " % ord(i))
         ct += 1
         if ct == 4:
             ct = 0
-            sys.stderr.write("\n")
-    sys.stderr.write("\n")
+            logging.info("\n")
+    logging.info("\n")
 
 
 def panic(str):
-    log(str)
+    logging.error(str)
     if prog:
         prog.device.close()
     sys.exit(1)
@@ -439,6 +435,7 @@ options:
     --xonxoff : enable xonxoff flow control.
     --control : use RTS and DTR to control reset and int0.
     --addr=<image start address> : set the base address for the image.
+    --verbose : enable debug message output.
     --verify : read the device after programming.
     --verifyonly : don't program, just verify.
     --eraseonly : don't program, just erase. Implies --eraseall.
@@ -638,12 +635,12 @@ class nxpprog:
                 # mask devid word1
                 devid_word1_mask = cpu_parms[dcpu].get("devid_word1_mask")
                 if devid_word1_mask and isinstance(devid, tuple) and devid[0] == cpu_devid[0] and (devid[1] & devid_word1_mask) == (cpu_devid[1] & devid_word1_mask):
-                    log("Detected %s" % dcpu)
+                    logging.debug("Detected %s" % dcpu)
                     self.cpu = dcpu
                     break
 
                 if devid == cpu_devid:
-                    log("Detected %s" % dcpu)
+                    logging.debug("Detected %s" % dcpu)
                     self.cpu = dcpu
                     break
             if self.cpu == "autodetect":
@@ -709,7 +706,7 @@ class nxpprog:
             if self.echo_on:
                 echo = self.dev_readline()
                 if self.verify and echo != cmd:
-                    log('Invalid echo')
+                    logging.debug('Invalid echo')
 
             status = self.dev_readline()
             if status:
@@ -724,7 +721,7 @@ class nxpprog:
         s = self.dev_readline()
         if not s:
             panic("Sync timeout")
-        print("initial sync =", s)
+        logging.error("initial sync =", s)
         if s != self.sync_str:
             panic("No sync string")
 
@@ -738,7 +735,7 @@ class nxpprog:
         elif s == self.OK:
             self.echo_on = False
         else:
-            print("echo sync =", s)
+            logging.debug("echo sync =", s)
             panic("No sync string")
 
         if s != self.OK:
@@ -898,7 +895,7 @@ class nxpprog:
                 elif err != "resend":
                     panic("Write error: %s" % err)
                 else:
-                    log("Resending")
+                    logging.debug("Resending")
 
             addr += a_block_size
 
@@ -944,7 +941,7 @@ class nxpprog:
         csum %= self.U32_MOD
         csum = self.U32_MOD - csum
 
-        log("Inserting intvec checksum 0x%08x in image at offset %d" %
+        logging.debug("Inserting intvec checksum 0x%08x in image at offset %d" %
                 (csum, valid_image_csum_vec))
 
         intvecs_list[valid_image_csum_vec] = csum
@@ -968,7 +965,8 @@ class nxpprog:
     def erase_sectors(self, start_sector, end_sector, verify=False):
         self.prepare_flash_sectors(start_sector, end_sector)
 
-        log("Erasing flash sectors %d-%d" % (start_sector, end_sector))
+        logging.info("Erasing flash sectors %d-%d" %
+            (start_sector, end_sector))
 
         if self.sector_commands_need_bank:
             self.isp_command("E %d %d 0" % (start_sector, end_sector))
@@ -976,7 +974,8 @@ class nxpprog:
             self.isp_command("E %d %d" % (start_sector, end_sector))
 
         if verify:
-            log("Blank checking sectors %d-%d" % (start_sector, end_sector))
+            logging.info("Blank checking sectors %d-%d" %
+                (start_sector, end_sector))
             self.blank_check_sectors(start_sector, end_sector)
 
 
@@ -1063,7 +1062,7 @@ class nxpprog:
             image += self.bytestr(0xff, pad_count)
             image_len += pad_count
 
-        log("Padding with %d bytes" % pad_count)
+        logging.debug("Padding with %d bytes" % pad_count)
 
         if erase_all:
             self.erase_all(verify)
@@ -1078,7 +1077,8 @@ class nxpprog:
             flash_addr_start = image_index + flash_addr_base
             flash_addr_end = flash_addr_start + a_ram_block - 1
 
-            log("Writing %d bytes to 0x%x" % (a_ram_block, flash_addr_start))
+            logging.info("Writing %d bytes to 0x%x" %
+                (a_ram_block, flash_addr_start))
 
             self.write_ram_data(ram_addr,
                     image[image_index: image_index + a_ram_block])
@@ -1138,7 +1138,8 @@ class nxpprog:
             end = end_addr if end_of_sector > end_addr else end_of_sector
             length = 4 * ((end - start) // 4)
 
-            log("Verify sector %i: Reading %d bytes from 0x%x" % (sector, length, start))
+            logging.info("Verify sector %i: Reading %d bytes from 0x%x" %
+                (sector, length, start))
             data = self.read_block(start, length)
             if isinstance(image[0], int):
                 data = [ord(x) for x in data]
@@ -1148,7 +1149,8 @@ class nxpprog:
 
             for (i, (x, y)) in enumerate(zip(data, image[index:index+(end-start)])):
                 if x != y:
-                    log("Verify failed! content differ at location 0x%x" % (faddr + i))
+                    logging.error("Verify failed! content differ at location \
+                        0x%x" % (faddr + i))
                     success = False
                     break
 
@@ -1214,6 +1216,7 @@ def main(argv=None):
     flash_addr_base = 0
     erase_all = False
     erase_only = False
+    verbose = False
     verify = False
     verify_only = False
     blank_check = False
@@ -1237,9 +1240,9 @@ def main(argv=None):
 
     for o, a in optlist:
         if o == "--list":
-            log("Supported cpus:")
+            logging.info("Supported cpus:")
             for val in sorted(cpu_parms.keys()):
-                log(" %s" % val)
+                logging.info(" %s" % val)
             sys.exit(0)
         if o == "--cpu":
             cpu = a
@@ -1255,6 +1258,8 @@ def main(argv=None):
             erase_all = True
         elif o == "--eraseonly":
             erase_only = True
+        elif o == "--verbose":
+            verbose = True
         elif o == "--verify":
             verify = True
         elif o == "--verifyonly":
@@ -1299,6 +1304,11 @@ def main(argv=None):
 
     if len(args) == 0:
         syntax()
+    
+    if verbose:
+        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    else:
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     device = args[0]
 
@@ -1325,11 +1335,11 @@ def main(argv=None):
             if len(parts)!=6 or min(parts)<0 or max(parts)>255:
                 panic("Bad MAC-address: %s" % mac)
             mac = '-'.join(['%02x'%x for x in parts])
-            log("cpu=%s ip=%s:%d mac=%s" % (cpu, device, port, mac))
+            logging.info("cpu=%s ip=%s:%d mac=%s" % (cpu, device, port, mac))
         else:
-            log("cpu=%s ip=%s:%d" % (cpu, device, port))
+            logging.info("cpu=%s ip=%s:%d" % (cpu, device, port))
     else:
-        log("cpu=%s oscfreq=%d device=%s baud=%d" % (cpu, osc_freq, device, baud))
+        logging.info("cpu=%s oscfreq=%d device=%s baud=%d" % (cpu, osc_freq, device, baud))
 
     prog = nxpprog(cpu, device, baud, osc_freq, xonxoff, control, (device, port, mac) if udp else None, verify)
 
@@ -1370,14 +1380,16 @@ def main(argv=None):
             success = prog.prog_image(image, flash_addr_base, erase_all, verify)
             stop = time.time()
             elapsed = stop - start
-            log("Programmed %s in %.1f seconds" % ("successfully" if success else "with errors", elapsed))
+            logging.info("Programmed %s in %.1f seconds" %
+                ("successfully" if success else "with errors", elapsed))
 
         if verify:
             start = time.time()
             success = prog.verify_image(flash_addr_base, image)
             stop = time.time()
             elapsed = stop - start
-            log("Verified %s in %.1f seconds" % ("successfully" if success else "with errors", elapsed))
+            logging.info("Verified %s in %.1f seconds" %
+                ("successfully" if success else "with errors", elapsed))
 
         if not verify_only:
             prog.start(flash_addr_base)
@@ -1387,7 +1399,7 @@ def main(argv=None):
 def signal_handler(sig, frame):
     if prog:
         prog.device.close()
-    print('Ctrl+C Pressed bailing out!')
+    logging.error('Ctrl+C Pressed bailing out!')
     sys.exit(0)
 
 if __name__ == '__main__':
