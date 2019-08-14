@@ -23,6 +23,7 @@
 # A simple programmer which works with the ISP protocol on NXP LPC arm
 # processors.
 
+import argparse
 import binascii
 import os
 import sys
@@ -56,6 +57,145 @@ INVALID_CODE = 16
 INVALID_BAUD_RATE = 17
 INVALID_STOP_BIT = 18
 CODE_READ_PROTECTION_ENABLED = 19
+
+parser = argparse.ArgumentParser()
+
+
+parser.add_argument(
+    '--binary',
+    required=True,
+    help='path to the firmware.bin file you want to program the board with.')
+
+parser.add_argument(
+    '--device',
+    required=True,
+    type=str,
+    default="",
+    help='Path to serial device file. In linux the name should be '
+    'something similar to "/dev/ttyUSB0", WSL "/dev/ttyS0", and '
+    'Max OSX "/dev/tty-usbserial-AJ20A5".')
+
+parser.add_argument(
+    '--udp',
+    help='program processor using Ethernet.',
+    action='store_true')
+
+parser.add_argument(
+    '--cpu',
+    type=str,
+    default="",
+    help='set the cpu type.')
+
+parser.add_argument(
+    '--osfreq',
+    type=int,
+    default=0,
+    help='set the oscillator frequency.')
+
+parser.add_argument(
+    '--baud',
+    type=int,
+    nargs='?',
+    default=0,
+    help='set the baud rate.')
+
+parser.add_argument(
+    '--xonxoff',
+    help='enable xonxoff flow control.',
+    action='store_true')
+
+parser.add_argument(
+    '--control',
+    help='use RTS and DTR to control reset and int0.',
+    action='store_true')
+
+parser.add_argument(
+    '--start',
+    help='start the device at a set address.',
+    action='store_true')
+
+parser.add_argument(
+    '-v',
+    '--verbose',
+    help='Enable version debug message output.',
+    action='store_true')
+
+parser.add_argument(
+    '--read',
+    type=str,
+    default="",
+    help='read from a file.')
+
+parser.add_argument(
+    '--len',
+    type=int,
+    default=0,
+    help='number of bytes to be read.')
+
+parser.add_argument(
+    '--serialnumber',
+    help='get the device serial number.',
+    action='store_true')
+
+parser.add_argument(
+    '--list',
+    help='list supported processors.',
+    action='store_true')
+
+parser.add_argument(
+    '--addr',
+    type=str,
+    default='',
+    help='set the base address for the image.')
+
+parser.add_argument(
+    '--verify',
+    help='read the device after programming.',
+    action='store_true')
+
+parser.add_argument(
+    '--verifyonly',
+    help='don\'t program, just verify.',
+    action='store_true')
+
+parser.add_argument(
+    '--eraseonly',
+    help='don\'t program, just erase. Implies --eraseall.',
+    action='store_true')
+
+parser.add_argument(
+    '--eraseall',
+    help='erase all flash not just the area written to.',
+    action='store_true')
+
+parser.add_argument(
+    '--blankcheck',
+    help='don\'t program, just check that the flash is blank.',
+    action='store_true')
+
+parser.add_argument(
+    '--filetype',
+    type=str,
+    default='bin',
+    help='set filetype to intel hex format or raw binary.')
+
+parser.add_argument(
+    '--bank',
+    type=int,
+    default=0,
+    help='set filetype to intel hex format or raw binary.')
+
+parser.add_argument(
+    '--port',
+    type=int,
+    default=41825,
+    help='UDP port number to use (default 41825).')
+
+parser.add_argument(
+    '--mac',
+    type=str,
+    default='',
+    help='MAC address to associate IP address with.')
 
 # flash sector sizes for lpc23xx/lpc24xx/lpc214x processors
 flash_sector_lpc23xx = (
@@ -721,7 +861,7 @@ class nxpprog:
         s = self.dev_readline()
         if not s:
             panic("Sync timeout")
-        logging.error("initial sync =", s)
+        logging.debug("initial sync = %s" % s)
         if s != self.sync_str:
             panic("No sync string")
 
@@ -735,7 +875,7 @@ class nxpprog:
         elif s == self.OK:
             self.echo_on = False
         else:
-            logging.debug("echo sync =", s)
+            logging.debug("echo sync = %s" % s)
             panic("No sync string")
 
         if s != self.OK:
@@ -1106,7 +1246,7 @@ class nxpprog:
                     self.dev_readline() # offset
                     success = False
                 else:
-                    self.errexit("'%s' error" % cmd, status)
+                    self.errexit("'%s' '%s' error" % (cmd, status))
 
         return success
 
@@ -1206,13 +1346,14 @@ class nxpprog:
 
 def main(argv=None):
     global prog
-    if argv is None:
-        argv = sys.argv
+    
+    args = parser.parse_args()
 
     # defaults
     osc_freq = 16000 # kHz
     baud = 115200
     cpu = "autodetect"
+    filename = ""
     flash_addr_base = 0
     erase_all = False
     erase_only = False
@@ -1232,85 +1373,72 @@ def main(argv=None):
     port = -1
     mac = "" # "0C-1D-12-E0-1F-10"
 
-    optlist, args = getopt.getopt(argv[1:], '',
-            ['cpu=', 'oscfreq=', 'baud=', 'addr=', 'start=',
-                'filetype=', 'bank=', 'read=', 'len=', 'serialnumber',
-                'udp', 'port=', 'mac=', 'verify', 'verifyonly', 'blankcheck',
-                'xonxoff', 'eraseall', 'eraseonly', 'list', 'control'])
-
-    for o, a in optlist:
-        if o == "--list":
-            logging.info("Supported cpus:")
-            for val in sorted(cpu_parms.keys()):
-                logging.info(" %s" % val)
-            sys.exit(0)
-        if o == "--cpu":
-            cpu = a
-        elif o == "--xonxoff":
-            xonxoff = True
-        elif o == "--oscfreq":
-            osc_freq = int(a)
-        elif o == "--addr":
-            flash_addr_base = int(a, 0)
-        elif o == "--baud":
-            baud = int(a)
-        elif o == "--eraseall":
-            erase_all = True
-        elif o == "--eraseonly":
-            erase_only = True
-        elif o == "--verbose":
-            verbose = True
-        elif o == "--verify":
-            verify = True
-        elif o == "--verifyonly":
-            verify = True
-            verify_only = True
-        elif o == "--blankcheck":
-            verify = True
-            blank_check = True
-        elif o == "--control":
-            control = True
-        elif o == "--filetype":
-            filetype = a
-            if not ( filetype == "bin" or filetype == "ihex" ):
-                panic("Invalid filetype: %s" % filetype)
-        elif o == "--start":
-            start = True
-            if a:
-                startaddr = int(a, 0)
-            else:
-                startaddr = 0
-        elif o == "--bank":
-            select_bank = True
-            bank = int(a)
-        elif o == "--read":
-            read = True
-            readfile = a
-        elif o == "--serialnumber":
-            get_serial_number = True
-        elif o == "--len":
-            readlen = int(a)
-        elif o == "--udp":
-            udp = True
-        elif o == "--port":
-            port = int(a)
-        elif o == "--mac":
-            mac = a
-        else:
-            panic("Unhandled option: %s" % o)
-
-    if cpu != "autodetect" and not cpu in cpu_parms:
-        panic("Unsupported cpu %s" % cpu)
-
-    if len(args) == 0:
-        syntax()
-    
-    if verbose:
+    if args.list:
+        logging.info("Supported cpus:")
+        for val in sorted(cpu_parms.keys()):
+            logging.info(" %s" % val)
+        sys.exit(0)
+    if args.verbose:
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     else:
         logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    if args.binary:
+        filename = args.binary
+    if args.device:
+        device = args.device
+    if args.cpu:
+        cpu = args.cpu
+    if args.xonxoff:
+        xonxoff = True
+    if args.osfreq:
+        os_freq = args.osfreq
+    if args.addr:
+        addr = int(args.addr, 0)
+    if args.baud:
+        baud = args.baud
+    if args.eraseall:
+        erase_all = args.eraseall
+    if args.eraseonly:
+        erase_only = args.eraseonly
+    if args.verify:
+        verify = True
+    if args.verifyonly:
+        verify = True
+        verify_only = True
+    if args.blankcheck:
+        verify = True
+        blank_check = True
+    if args.control:
+        control = True
+    if args.filetype:
+        filetype = args.filetype
+    if not (filetype == "bin" or filetype == "ihex" ):
+        panic("Invalid filetype: %s" % filetype)
+    if args.start:
+        start = True
+        if args.addr:
+            startaddr = int(args.addr, 0)
+        else:
+            startaddr = 0
+    if args.bank:
+        select_bank = True
+        bank = args.bank
+    if args.read:
+        read = True
+        readfile = a
+    if args.serialnumber:
+        get_serial_number = True
+    if args.len:
+        readlen = args.len
+    if args.udp:
+        udp = True
+    if args.port:
+        port = int(args.port)
+    if args.mac:
+        mac = args.mac
 
-    device = args[0]
+    if cpu != "autodetect" and not cpu in cpu_parms:
+        panic("Unsupported cpu %s" % cpu)
 
     if udp:
         if '.' in device:
@@ -1361,10 +1489,6 @@ def main(argv=None):
         prog.read_block(flash_addr_base, readlen, fd)
         fd.close()
     else:
-        if len(args) != 2:
-            syntax()
-
-        filename = args[1]
 
         if filetype == "autodetect":
             filetype = "ihex" if filename.endswith('hex') else "bin"
