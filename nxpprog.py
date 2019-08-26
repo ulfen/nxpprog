@@ -30,12 +30,15 @@ import sys
 import struct
 import getopt
 import logging
-import serial # pyserial
 import signal
 import socket
 import time
 
 import ihex
+
+import serial
+import serial.serialutil
+import serial.tools.list_ports as port_list
 
 CMD_SUCCESS = 0
 INVALID_COMMAND = 1
@@ -537,6 +540,80 @@ cpu_parms = {
 }
 
 prog = None
+
+
+LPC_CHAR = {'Question': b'?',
+            'Synchronized': b'Synchronized\r\n',
+            'OK': b'OK\r\n'}
+
+
+class AutoLPCPortFinder:
+    def __init__(self, device=None):
+        self.device = device
+
+    def port_write_and_verify(self, port, payload, error_message="", debug_message=""):
+        bytes_sent = port.write(bytearray(payload))
+        if bytes_sent != len(payload):
+            log(error_message)
+        else:
+            log(debug_message)
+
+
+    def port_read(self, port, number_of_bytes):
+        return bytearray(port.read(number_of_bytes))
+
+    def find_lpc_port(self):
+        log('Scanning ports for NXP LPC devices...')
+        if self.device:
+            serial_device_list = [
+                {
+                    "device": self.device
+                }
+            ]
+        else:
+            serial_device_list = list(port_list.comports())
+
+        for port_info in serial_device_list:
+            try:
+                port = serial.Serial(
+                    port=port_info.device,
+                    baudrate=115200,
+                    parity=serial.PARITY_NONE,
+                    stopbits=serial.STOPBITS_ONE,
+                    bytesize=serial.EIGHTBITS,
+                    timeout=1)
+                sync_successful = self.attempt_sync(port)
+                if sync_successful:
+                    logging.info("LPC device found on this port!")
+                    logging.debug("WE GOOD YA HERD")
+                    port.close()
+                    return port_info.device
+            except serial.SerialException:
+                logging.debug(f'excpetion on port {port}')
+                continue
+
+        return None
+
+    def attempt_sync(self, port):
+        serial_device = SerialDevice(port.port, port.baudrate)
+        serial_device.isp_mode()
+        log(f'Attempting to sync with device at {port.port}')
+        self.port_write_and_verify(port, LPC_CHAR['Question'])
+        time.sleep(.100)
+        response = self.port_read(port, 14)
+
+        if response != LPC_CHAR['Synchronized']:
+            return False
+        time.sleep(.100)
+        self.port_write_and_verify(port, LPC_CHAR['Synchronized'])
+        time.sleep(.100)
+        response = self.port_read(port, 17)
+        return len(response) >= 4 and response[-4:] == LPC_CHAR['OK']
+
+
+def log(str):
+    sys.stderr.write("%s\n" % str)
+    sys.stderr.flush()
 
 
 def dump(name, str):
@@ -1346,12 +1423,13 @@ class nxpprog:
 
 def main(argv=None):
     global prog
-    
+
     args = parser.parse_args()
 
     # defaults
     osc_freq = 16000 # kHz
     baud = 115200
+    device = None
     cpu = "autodetect"
     filename = ""
     flash_addr_base = 0
@@ -1439,6 +1517,12 @@ def main(argv=None):
 
     if cpu != "autodetect" and not cpu in cpu_parms:
         panic("Unsupported cpu %s" % cpu)
+
+    port_finder = AutoLPCPortFinder()
+    if not device:
+        device = port_finder.find_lpc_port()
+        if device == None:
+            panic("Scanned serial ports, but could not find an LPC device. Are you sure it is connected to your computer?\n\n")
 
     if udp:
         if '.' in device:
