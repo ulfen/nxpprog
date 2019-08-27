@@ -544,8 +544,52 @@ prog = None
 
 LPC_CHAR = {'Question': b'?',
             'Synchronized': b'Synchronized\r\n',
+            'SynchronizedLeadingZeros': b'\x00\x00Synchronized\r\n',
             'OK': b'OK\r\n'}
 
+## Animation stuff
+ANIMATIONS = {
+    "circles": [0x25D0, 0x25D3, 0x25D1, 0x25D2],
+    "quadrants": [0x259F, 0x2599, 0x259B, 0x259C],
+    "trigrams": [0x2630, 0x2631, 0x2632, 0x2634],
+    "squarefills": [0x25E7, 0x25E9, 0x25E8, 0x25EA],
+    "spaces": [0x2008, 0x2008, 0x2008, 0x2008],
+    "braille":
+    [0x2840, 0x2844, 0x2846, 0x2847, 0x28c7, 0x28e7, 0x28f7, 0x28fF],
+    "dots12": [
+        "⢀⠀","⡀⠀","⠄⠀","⢂⠀","⡂⠀","⠅⠀","⢃⠀","⡃⠀","⠍⠀","⢋⠀","⡋⠀","⠍⠁","⢋⠁",
+        "⡋⠁","⠍⠉","⠋⠉","⠋⠉","⠉⠙","⠉⠙","⠉⠩","⠈⢙","⠈⡙","⢈⠩","⡀⢙","⠄⡙","⢂⠩",
+        "⡂⢘","⠅⡘","⢃⠨","⡃⢐","⠍⡐","⢋⠠","⡋⢀","⠍⡁","⢋⠁","⡋⠁","⠍⠉","⠋⠉","⠋⠉",
+        "⠉⠙","⠉⠙","⠉⠩","⠈⢙","⠈⡙","⠈⠩","⠀⢙","⠀⡙","⠀⠩","⠀⢘","⠀⡘","⠀⠨","⠀⢐",
+        "⠀⡐","⠀⠠","⠀⢀","⠀⡀"
+	]
+}
+selected_animation = ANIMATIONS["dots12"]
+def unichar(i):
+  try:
+    return chr(i)
+  except ValueError:
+    return struct.pack('i', i).decode('utf-32')
+
+def progress_bar(bar_length, current_block, total_blocks):
+  bar_len = bar_length
+  filled_len = int(round(bar_len * (current_block + 1) / float(total_blocks)))
+
+  percents = round(100.0 * (current_block + 1) / float(total_blocks), 1)
+
+  bar = "█" * (filled_len - 1)
+  bar = bar + "░" * (bar_len - filled_len)
+
+  suffix = "Block # 0x{:X} of 0x{:X}".format(
+      current_block + 1, int(total_blocks))
+
+  sys.stdout.write(
+      '%s %s%% %s %s\r' %
+      (bar, percents,
+       selected_animation[current_block % len(selected_animation)],
+       suffix))
+
+  sys.stdout.flush()
 
 class AutoLPCPortFinder:
     def __init__(self, device=None):
@@ -582,7 +626,9 @@ class AutoLPCPortFinder:
                     stopbits=serial.STOPBITS_ONE,
                     bytesize=serial.EIGHTBITS,
                     timeout=1)
+
                 sync_successful = self.attempt_sync(port)
+
                 if sync_successful:
                     logging.info("LPC device found on this port!")
                     logging.debug("WE GOOD YA HERD")
@@ -597,18 +643,25 @@ class AutoLPCPortFinder:
     def attempt_sync(self, port):
         serial_device = SerialDevice(port.port, port.baudrate)
         serial_device.isp_mode()
-        log(f'Attempting to sync with device at {port.port}')
+
+        port.flush()
+        port.reset_input_buffer()
+        port.reset_output_buffer()
+
+        logging.debug(f'Attempting to sync with device at {port.port}')
         self.port_write_and_verify(port, LPC_CHAR['Question'])
         time.sleep(.100)
         response = self.port_read(port, 14)
+        logging.info(f'Response = {response}')
 
-        if response != LPC_CHAR['Synchronized']:
-            return False
-        time.sleep(.100)
-        self.port_write_and_verify(port, LPC_CHAR['Synchronized'])
-        time.sleep(.100)
-        response = self.port_read(port, 17)
-        return len(response) >= 4 and response[-4:] == LPC_CHAR['OK']
+        if (response == LPC_CHAR['Synchronized'] or
+            response == LPC_CHAR['SynchronizedLeadingZeros']):
+            time.sleep(.100)
+            self.port_write_and_verify(port, LPC_CHAR['Synchronized'])
+            time.sleep(.100)
+            response = self.port_read(port, 17)
+            return len(response) >= 4 and response[-4:] == LPC_CHAR['OK']
+        return False
 
 
 def log(str):
@@ -1286,6 +1339,9 @@ class nxpprog:
         else:
             self.erase_flash_range(flash_addr_base, flash_addr_base + image_len - 1, verify)
 
+        sys.stdout.write('\r\n')
+        sys.stdout.flush()
+
         for image_index in range(0, image_len, ram_block):
             a_ram_block = image_len - image_index
             if a_ram_block > ram_block:
@@ -1294,8 +1350,10 @@ class nxpprog:
             flash_addr_start = image_index + flash_addr_base
             flash_addr_end = flash_addr_start + a_ram_block - 1
 
-            logging.info("Writing %d bytes to 0x%x" %
+            logging.debug("Writing %d bytes to 0x%x" %
                 (a_ram_block, flash_addr_start))
+
+            progress_bar(30, flash_addr_start, image_len)
 
             self.write_ram_data(ram_addr,
                     image[image_index: image_index + a_ram_block])
@@ -1325,6 +1383,10 @@ class nxpprog:
                 else:
                     self.errexit("'%s' '%s' error" % (cmd, status))
 
+        progress_bar(30, image_len - 1, image_len)
+
+        sys.stdout.write('\r\n\r\n')
+        sys.stdout.flush()
         return success
 
 
@@ -1613,5 +1675,3 @@ def signal_handler(sig, frame):
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     sys.exit(main())
-
-# EOF
