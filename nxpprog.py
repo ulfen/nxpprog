@@ -619,6 +619,8 @@ class AutoLPCPortFinder:
 
         for port_info in serial_device_list:
             try:
+                logging.debug(f"Trying port {port_info.device}")
+
                 port = serial.Serial(
                     port=port_info.device,
                     baudrate=115200,
@@ -634,8 +636,8 @@ class AutoLPCPortFinder:
                     logging.debug("WE GOOD YA HERD")
                     port.close()
                     return port_info.device
-            except serial.SerialException:
-                logging.debug(f'excpetion on port {port}')
+            except (OSError, serial.SerialException) as e:
+                logging.debug(f'excpetion on port {e}')
                 continue
 
         return None
