@@ -447,7 +447,7 @@ class SerialDevice(object):
         # or the device is in the wrong mode.
         # This timeout is too short for slow baud rates but who wants to
         # use them?
-        self._serial.setTimeout(5)
+        self._serial.timeout = 1
         # device wants Xon Xoff flow control
         if xonxoff:
             self._serial.setXonXoff(1)
@@ -491,8 +491,8 @@ class SerialDevice(object):
 
     def readline(self, timeout=None):
         if timeout:
-            ot = self._serial.getTimeout()
-            self._serial.setTimeout(timeout)
+            ot = self._serial.timeout
+            self._serial.timeout = timeout
 
         line = b''
         while True:
@@ -512,7 +512,7 @@ class SerialDevice(object):
             line += c
 
         if timeout:
-            self._serial.setTimeout(ot)
+            self._serial.timeout = ot
 
         return line.decode("UTF-8", "ignore")
 
@@ -685,8 +685,11 @@ class nxpprog:
 
 
     def sync(self, osc):
-        self.dev_write(b'?')
-        s = self.dev_readline()
+        for _ in range(10):
+            self.dev_write(b'?')
+            s = self.dev_readline()
+            if s:
+                break
         if not s:
             panic("Sync timeout")
         if s != self.sync_str:
@@ -1256,7 +1259,7 @@ def main(argv=None):
         else:
             panic("Unhandled option: %s" % o)
 
-    if cpu != "autodetect" and not cpu_parms.has_key(cpu):
+    if cpu != "autodetect" and not cpu in cpu_parms:
         panic("Unsupported cpu %s" % cpu)
 
     if len(args) == 0:
